@@ -5,6 +5,7 @@ Een intelligente afvalcontainer met camera-gebaseerde objectdetectie, LED-indica
 ## 🎯 Projectbeschrijving
 
 Dit project implementeert een slimme afvalcontainer die:
+
 - **Automatisch afvaltype detecteert** via camera en AI-objectdetectie
 - **Visueel aanduidt** welke container gebruikt moet worden met NeoPixel LED's
 - **Controleert of afval gevallen is** met ultrasoon sensoren
@@ -12,16 +13,17 @@ Dit project implementeert een slimme afvalcontainer die:
 ## 💻 Hardware
 
 ### Componenten
+
 - **Raspberry Pi 5** - Hoofd verwerkingseenheid
 - **Raspberry Pi Camera 3** - Objectdetectie
 - **NeoPixel LED-strip** - Visuele container-indicatie
 - **Ultrasoon sensoren (HC-SR04)** - Afvalniveaudetectie
 - **Diverse verbindingsmaterialen** - Bedrading, voeding, behuizing
 
-
 ## 🔧 Software
 
 ### Vereisten
+
 - Python 3.10+
 - Raspberry Pi OS
 - Required Python libraries:
@@ -30,10 +32,10 @@ Dit project implementeert een slimme afvalcontainer die:
   - Adafruit NeoPixel
   - RPi.GPIO of gpiozero
 
-
 ## 🚀 Functionaliteiten
 
 ### 1. Camera Objectdetectie
+
 - Captureert beelden van de Pi Camera 3
 - Herkent afvaltypes (papier, plastic, glas, etc.)
 - Voert inferentie uit met getraind model
@@ -41,6 +43,7 @@ Dit project implementeert een slimme afvalcontainer die:
 ### 2. LED Indicatie (NeoPixel)
 
 ### 3. Ultrasoon Sensordetectie
+
 - Meet afstand tot afval
 - Detecteert wanneer afval in container valt
 
@@ -65,7 +68,7 @@ SlimmeAfvalcontainer/
 -->
 ## 🔄 Workflow
 
-```
+```text
 1. Camera legt beeld vast
    ↓
 2. AI-model analyzeert afvaltype
@@ -115,7 +118,6 @@ Alle events worden gelogd in `logs/system.log`:
 ## 👥 Bijdragers
 
 - [Jouw Naam]
-
 
 ## 🔗 Links & Resources
 
