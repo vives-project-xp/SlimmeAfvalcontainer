@@ -1,4 +1,4 @@
-# 🗑️ SlimmeAfvalcontainer
+# 🗑️ SlimmeAfvalcontainer 
 
 Een intelligente afvalcontainer met camera-gebaseerde objectdetectie, LED-indicatie en ultrasoon sensordetectie.
 
