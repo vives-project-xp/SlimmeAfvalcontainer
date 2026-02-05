@@ -13,7 +13,7 @@ Dit project implementeert een slimme afvalcontainer die:
 
 ### Componenten
 - **Raspberry Pi 5** - Hoofd verwerkingseenheid
-- **Raspberry Pi Camera 3** - Objectdetectie.
+- **Raspberry Pi Camera 3** - Objectdetectie
 - **NeoPixel LED-strip** - Visuele container-indicatie
 - **Ultrasoon sensoren (HC-SR04)** - Afvalniveaudetectie
 - **Diverse verbindingsmaterialen** - Bedrading, voeding, behuizing
