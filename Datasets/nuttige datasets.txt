@@ -1,11 +1,11 @@
 !!!!!!!!Deze datasets moeten nog gesorteerd worden!!!!!!
 
 
-Custom Waste classification dataset
+Custom Waste classification dataset (kobe)
 https://www.kaggle.com/datasets/wasifmahmood01/custom-waste-classification-dataset
 
-TrashNet:
+TrashNet: (maarten)
 https://www.kaggle.com/datasets/feyzazkefe/trashnet/data
 
-Garbage Dataset
+Garbage Dataset (maarten)
 https://www.kaggle.com/datasets/sumn2u/garbage-classification-v2
