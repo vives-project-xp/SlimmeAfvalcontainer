@@ -114,10 +114,10 @@ Alle events worden gelogd in `logs/system.log`:
 
 ## Team
 - [<img src="https://github.com/MaartenAudenaert.png" alt="" width="25" style="margin-bottom:-6px;">Maarten Audenaert](https://github.com/MaartenAudenaert)
-- [<img src="https://github.com/kobedemetser.png" alt="" width="25" style="margin-bottom:-6px;">Kobe Demetser](https://github.com/maurocarlier)
+- [<img src="https://github.com/kobedemetser.png" alt="" width="25" style="margin-bottom:-6px;">Kobe Demetser](https://github.com/kobedemetser)
 - [<img src="https://github.com/.png" alt="" width="25" style="margin-bottom:-6px;">Ocean Dekeyser](https://github.com/OceanDekeyser)
-- [<img src="https://github.com/.png" alt="" width="25" style="margin-bottom:-6px;">Juul Kerkhof](https://github.com/lomopoio)
-- [<img src="https://github.com/Thomas8650.png" alt="" width="25" style="margin-bottom:-6px;">Bhavninder Pal Singh](https://github.com/Thomas8650)
+- [<img src="https://github.com/.png" alt="" width="25" style="margin-bottom:-6px;">Juul Kerkhof](https://github.com/)
+- [<img src="https://github.com/.png" alt="" width="25" style="margin-bottom:-6px;">Bhavninder Pal Singh](https://github.com/)
 
 
 
