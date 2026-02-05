@@ -32,6 +32,14 @@ Dit project implementeert een slimme afvalcontainer die:
   - Adafruit NeoPixel
   - RPi.GPIO of gpiozero
 
+### Datasets voor AI-training
+
+We gebruiken de volgende datasets om het AI-model te trainen:
+
+- **Custom Waste classification dataset** - [Kaggle](https://www.kaggle.com/datasets/wasifmahmood01/custom-waste-classification-dataset)
+- **TrashNet** - [Kaggle](https://www.kaggle.com/datasets/feyzazkefe/trashnet/data)
+- **Garbage Dataset** - [Kaggle](https://www.kaggle.com/datasets/sumn2u/garbage-classification-v2)
+
 ## 🚀 Functionaliteiten
 
 ### 1. Camera Objectdetectie
