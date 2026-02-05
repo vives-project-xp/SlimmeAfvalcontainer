@@ -1,0 +1,5 @@
+Custom Waste classification dataset
+https://www.kaggle.com/datasets/wasifmahmood01/custom-waste-classification-dataset
+
+TrashNet:
+https://www.kaggle.com/datasets/feyzazkefe/trashnet/data
