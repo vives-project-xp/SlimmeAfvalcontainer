@@ -133,5 +133,3 @@ Alle events worden gelogd in `logs/system.log`:
 
 ---
 
-**Versie:** 1.0.0  
-**Laatste update:** 5 februari 2026
