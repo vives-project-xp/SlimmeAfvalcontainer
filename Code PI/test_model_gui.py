@@ -6,7 +6,18 @@ from tkinter import ttk
 import threading
 import argparse
 from pathlib import Path
-from picamera2 import Picamera2
+
+try:
+    from picamera2 import Picamera2
+except ModuleNotFoundError as exc:
+    if exc.name == "libcamera":
+        raise ModuleNotFoundError(
+            "Module 'libcamera' ontbreekt in deze Python-omgeving.\n"
+            "Op Raspberry Pi installeer je dit via apt:\n"
+            "  sudo apt install python3-libcamera python3-picamera2\n"
+            "Gebruik daarna de system Python of een venv met --system-site-packages."
+        ) from exc
+    raise
 
 try:
     from PIL import Image, ImageTk
