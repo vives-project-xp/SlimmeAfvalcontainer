@@ -54,6 +54,7 @@ We gebruiken de volgende datasets om het AI-model te trainen:
 
 - Meet afstand tot afval
 - Detecteert wanneer afval in container valt
+- Geeft aan wanneer de container vol zit
 
 ## 📁 Project Structuur
 <!--
