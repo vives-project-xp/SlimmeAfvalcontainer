@@ -92,27 +92,21 @@ class SmartBinDisplayApp:
         self.classes = list(DEFAULT_CLASSES)
         self.colors = list(DEFAULT_COLORS)
         self.running = True
+        self.initialized = False
         self.worker_active = False
         self.result_queue: Queue[tuple[str, object]] = Queue()
         self.latest_frame: np.ndarray | None = None
-
-        print("Initializing model...")
-        resolved_model = resolve_model_path(config.model_path)
-        print(f"Loading model: {resolved_model}")
-        self.session = ort.InferenceSession(resolved_model)
-        self.input_name = self.session.get_inputs()[0].name
-
-        print("Initializing camera...")
-        self.camera = Picamera2()
-        camera_config = self.camera.create_preview_configuration(
-            main={"size": (640, 480), "format": "RGB888"}
-        )
-        self.camera.configure(camera_config)
-        self.camera.start()
-        time.sleep(2)
+        self.session: ort.InferenceSession | None = None
+        self.input_name: str | None = None
+        self.camera: Picamera2 | None = None
 
         self.setup_gui()
+        self._set_buttons_enabled(False)
+        self._set_status("Initialiseren: model en camera laden...")
         self.update_preview()
+        init_thread = threading.Thread(target=self._initialize_worker)
+        init_thread.daemon = True
+        init_thread.start()
 
     def setup_gui(self) -> None:
         self.root = tk.Tk()
@@ -141,11 +135,23 @@ class SmartBinDisplayApp:
         content = tk.Frame(self.root, bg="#f2f2f2")
         content.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
 
-        preview_frame = tk.Frame(content, bg="#f2f2f2")
+        preview_frame = tk.Frame(
+            content,
+            bg="black",
+            width=self.config.preview_width,
+            height=self.config.preview_height,
+        )
         preview_frame.pack(side=tk.LEFT, fill=tk.BOTH)
+        preview_frame.pack_propagate(False)
 
-        self.preview_label = tk.Label(preview_frame, bg="black")
-        self.preview_label.pack()
+        self.preview_label = tk.Label(
+            preview_frame,
+            bg="black",
+            fg="white",
+            text="Camera wordt gestart...",
+            font=("Arial", 10),
+        )
+        self.preview_label.pack(fill=tk.BOTH, expand=True)
 
         side_panel = tk.Frame(content, bg="#f2f2f2")
         side_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(8, 0))
@@ -171,6 +177,18 @@ class SmartBinDisplayApp:
             anchor="w",
         )
         self.time_label.pack(fill=tk.X, pady=(0, 6))
+
+        self.status_label = tk.Label(
+            side_panel,
+            text="",
+            font=("Arial", 9),
+            bg="#f2f2f2",
+            fg="#555555",
+            anchor="w",
+            justify="left",
+            wraplength=max(self.config.window_width - self.config.preview_width - 40, 120),
+        )
+        self.status_label.pack(fill=tk.X, pady=(0, 6))
 
         self.progress_bars: dict[str, dict[str, object]] = {}
         for class_name in self.classes:
@@ -238,11 +256,47 @@ class SmartBinDisplayApp:
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.root.after(50, self._process_worker_messages)
 
+    def _initialize_worker(self) -> None:
+        try:
+            print("Initializing model...")
+            resolved_model = resolve_model_path(self.config.model_path)
+            print(f"Loading model: {resolved_model}")
+            session = ort.InferenceSession(resolved_model)
+            input_name = session.get_inputs()[0].name
+
+            print("Initializing camera...")
+            camera = Picamera2()
+            camera_config = camera.create_preview_configuration(
+                main={"size": (640, 480), "format": "RGB888"}
+            )
+            camera.configure(camera_config)
+            camera.start()
+            time.sleep(1)
+
+            if not self.running:
+                camera.stop()
+                return
+
+            self.result_queue.put(("init_ok", (session, input_name, camera, resolved_model)))
+        except Exception as exc:  # noqa: BLE001
+            self.result_queue.put(("init_error", str(exc)))
+
     def update_preview(self) -> None:
         if not self.running:
             return
 
-        image = self.camera.capture_array()
+        if self.camera is None:
+            self.root.after(self.config.update_ms, self.update_preview)
+            return
+
+        try:
+            image = self.camera.capture_array()
+        except Exception as exc:  # noqa: BLE001
+            self._set_error(f"Camerafout: {exc}")
+            self._set_status("Camera kon niet lezen. Controleer camera-aansluiting.", "#B00020")
+            self.root.after(self.config.update_ms, self.update_preview)
+            return
+
         self.latest_frame = image.copy()
         img = Image.fromarray(image)
 
@@ -255,7 +309,7 @@ class SmartBinDisplayApp:
         )
         photo = ImageTk.PhotoImage(img)
 
-        self.preview_label.configure(image=photo)
+        self.preview_label.configure(image=photo, text="")
         self.preview_label.image = photo
         self.root.after(self.config.update_ms, self.update_preview)
 
@@ -274,6 +328,9 @@ class SmartBinDisplayApp:
     def classify_threaded(self, save: bool = False) -> None:
         if not self.running or self.worker_active:
             return
+        if not self.initialized:
+            self._set_error("Nog niet klaar: model/camera initialiseren.")
+            return
 
         self.worker_active = True
         self._set_buttons_enabled(False)
@@ -290,9 +347,14 @@ class SmartBinDisplayApp:
             self.result_queue.put(("done", None))
 
     def classify(self, save_photo: bool = False) -> None:
+        if self.session is None or self.input_name is None:
+            raise RuntimeError("Model is nog niet geladen.")
+
         if self.latest_frame is not None:
             image = self.latest_frame.copy()
         else:
+            if self.camera is None:
+                raise RuntimeError("Camera is nog niet klaar.")
             image = self.camera.capture_array()
 
         if save_photo:
@@ -325,9 +387,23 @@ class SmartBinDisplayApp:
                 self._update_results(probabilities, predicted_idx, inference_time)
             elif message_type == "error":
                 self._set_error(str(payload))
+            elif message_type == "init_ok":
+                session, input_name, camera, resolved_model = payload
+                self.session = session
+                self.input_name = input_name
+                self.camera = camera
+                self.initialized = True
+                self.prediction_label.config(text="Klaar voor classificatie", fg="#333333")
+                self._set_status(f"Gereed. Model: {Path(resolved_model).name}")
+                self._set_buttons_enabled(True)
+            elif message_type == "init_error":
+                self.initialized = False
+                self._set_error(str(payload))
+                self._set_status("Initialisatie mislukt. Check terminal-output.", "#B00020")
+                self._set_buttons_enabled(False)
             elif message_type == "done":
                 self.worker_active = False
-                self._set_buttons_enabled(True)
+                self._set_buttons_enabled(self.initialized)
 
         self.root.after(50, self._process_worker_messages)
 
@@ -338,6 +414,9 @@ class SmartBinDisplayApp:
 
     def _set_error(self, message: str) -> None:
         self.prediction_label.config(text=f"Fout: {message}", fg="#B00020")
+
+    def _set_status(self, message: str, color: str = "#555555") -> None:
+        self.status_label.config(text=message, fg=color)
 
     def _update_results(
         self,
@@ -378,7 +457,8 @@ class SmartBinDisplayApp:
     def on_closing(self) -> None:
         self.running = False
         try:
-            self.camera.stop()
+            if self.camera is not None:
+                self.camera.stop()
         finally:
             self.root.destroy()
 
