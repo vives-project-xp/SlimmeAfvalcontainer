@@ -1,73 +1,37 @@
-import os
-import requests
+import shutil
 from pathlib import Path
 
-def download_file(url, destination):
-    """Download bestand van URL naar lokale destinatie"""
-    print(f"Downloading {os.path.basename(destination)}...")
-    
-    try:
-        response = requests.get(url, stream=True)
-        response.raise_for_status()
-        
-        # Maak directory als die niet bestaat
-        os.makedirs(os.path.dirname(destination), exist_ok=True)
-        
-        # Download met progress
-        total_size = int(response.headers.get('content-length', 0))
-        downloaded = 0
-        
-        with open(destination, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    if total_size > 0:
-                        progress = (downloaded / total_size) * 100
-                        print(f"\rProgress: {progress:.1f}%", end='', flush=True)
-        
-        print(f"\n✓ Downloaded: {os.path.basename(destination)}")
-        return True
-        
-    except Exception as e:
-        print(f"\n✗ Error downloading {os.path.basename(destination)}: {e}")
-        return False
+TARGET_DIR = Path("/home/kobe/smart_bin")
+SCRIPT_DIR = Path(__file__).resolve().parent
 
-def download_model_files():
-    """Download model.onnx en model.onnx.data van GitHub"""
-    
-    # GitHub raw content URLs
-    base_url = "https://raw.githubusercontent.com/vives-project-xp/SlimmeAfvalcontainer/main/Ai-model"
-    
-    files = {
-        "model.onnx": f"{base_url}/model.onnx",
-        "model.onnx.data": f"{base_url}/model.onnx.data"
-    }
-    
+def sync_code_pi_to_target():
+    """Kopieer alle inhoud van Code PI naar /home/kobe/smart_bin"""
     print("=" * 50)
-    print("Downloading model files from GitHub...")
+    print(f"Syncing files to {TARGET_DIR}...")
     print("=" * 50)
-    
-    success_count = 0
-    for filename, url in files.items():
-        if download_file(url, filename):
-            success_count += 1
-    
-    print("\n" + "=" * 50)
-    if success_count == len(files):
-        print("✓ All files downloaded successfully!")
-        print(f"Model files saved in: {os.getcwd()}")
+
+    TARGET_DIR.mkdir(parents=True, exist_ok=True)
+
+    for item in SCRIPT_DIR.iterdir():
+        if item.name == "__pycache__":
+            continue
+
+        destination = TARGET_DIR / item.name
+
+        if item.resolve() == destination.resolve():
+            continue
+
+        if item.is_dir():
+            shutil.copytree(item, destination, dirs_exist_ok=True)
+        else:
+            shutil.copy2(item, destination)
+
+    print(f"✓ Code files synced to: {TARGET_DIR}")
+
+    if (TARGET_DIR / "model.onnx").exists() and (TARGET_DIR / "model.onnx.data").exists():
+        print("✓ Modelbestanden gevonden in doelmap.")
     else:
-        print(f"⚠ Downloaded {success_count}/{len(files)} files")
-    print("=" * 50)
+        print("⚠ Let op: model.onnx en/of model.onnx.data ontbreken in Code PI.")
 
 if __name__ == "__main__":
-    # Controleer of bestanden al bestaan
-    if os.path.exists("model.onnx") and os.path.exists("model.onnx.data"):
-        print("Model files already exist!")
-        overwrite = input("Do you want to re-download them? (y/n): ").lower()
-        if overwrite != 'y':
-            print("Skipping download.")
-            exit(0)
-    
-    download_model_files()
+    sync_code_pi_to_target()
