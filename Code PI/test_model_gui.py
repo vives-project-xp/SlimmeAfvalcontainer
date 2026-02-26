@@ -1,11 +1,20 @@
 import onnxruntime as ort
 import numpy as np
-from PIL import Image, ImageTk
-from picamera2 import Picamera2
 import time
 import tkinter as tk
 from tkinter import ttk
 import threading
+from picamera2 import Picamera2
+
+try:
+    from PIL import Image, ImageTk
+except ImportError as exc:
+    raise ImportError(
+        "PIL.ImageTk ontbreekt. Installeer in je actieve omgeving:\n"
+        "  sudo apt install python3-pil.imagetk python3-tk\n"
+        "of:\n"
+        "  python -m pip install --upgrade pillow"
+    ) from exc
 
 class SmartBinClassifierGUI:
     def __init__(self, model_path="model.onnx"):
