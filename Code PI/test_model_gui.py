@@ -4,6 +4,8 @@ import time
 import tkinter as tk
 from tkinter import ttk
 import threading
+import argparse
+from pathlib import Path
 from picamera2 import Picamera2
 
 try:
@@ -16,11 +18,49 @@ except ImportError as exc:
         "  python -m pip install --upgrade pillow"
     ) from exc
 
+def resolve_model_path(model_path=None):
+    """Zoek een bruikbaar ONNX-model op een paar logische locaties."""
+    script_dir = Path(__file__).resolve().parent
+    candidates = []
+
+    if model_path:
+        user_path = Path(model_path).expanduser()
+        if user_path.is_absolute():
+            candidates.append(user_path)
+        else:
+            candidates.append((Path.cwd() / user_path).resolve())
+            candidates.append((script_dir / user_path).resolve())
+
+    candidates.append((script_dir / "model.onnx").resolve())
+    candidates.append((script_dir / "modelv2.onnx").resolve())
+
+    checked = []
+    seen = set()
+    for candidate in candidates:
+        key = str(candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        checked.append(candidate)
+        if candidate.is_file():
+            return str(candidate)
+
+    available_models = sorted(path.name for path in script_dir.glob("*.onnx"))
+    available_text = ", ".join(available_models) if available_models else "geen"
+    checked_text = ", ".join(str(path) for path in checked) if checked else "geen paden"
+    raise FileNotFoundError(
+        "Geen ONNX-model gevonden.\n"
+        f"Geprobeerd: {checked_text}\n"
+        f"Beschikbare .onnx-bestanden in {script_dir}: {available_text}"
+    )
+
 class SmartBinClassifierGUI:
-    def __init__(self, model_path="model.onnx"):
+    def __init__(self, model_path=None):
         """Initialiseer camera, model en GUI"""
         print("Initializing model...")
-        self.session = ort.InferenceSession(model_path)
+        resolved_model = resolve_model_path(model_path)
+        print(f"Loading model: {resolved_model}")
+        self.session = ort.InferenceSession(resolved_model)
         self.classes = ['Organisch', 'PMD', 'Papier', 'Restafval']
         self.colors = ['#4CAF50', '#FFC107', '#2196F3', '#757575']  # Groen, Geel, Blauw, Grijs
         
@@ -251,9 +291,18 @@ class SmartBinClassifierGUI:
         self.root.mainloop()
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Smart Bin Classifier GUI")
+    parser.add_argument(
+        "--model",
+        dest="model_path",
+        default=None,
+        help="Pad naar ONNX-modelbestand (bijv. modelv2.onnx)",
+    )
+    args = parser.parse_args()
+
     try:
         print("Starting Smart Bin Classifier GUI...")
-        classifier = SmartBinClassifierGUI()
+        classifier = SmartBinClassifierGUI(model_path=args.model_path)
         classifier.run()
     except KeyboardInterrupt:
         print("\nStopping...")
