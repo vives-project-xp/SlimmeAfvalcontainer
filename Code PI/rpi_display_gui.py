@@ -36,17 +36,25 @@ except ImportError as exc:
 DEFAULT_CLASSES = ("Organisch", "PMD", "Papier", "Restafval")
 DEFAULT_COLORS = ("#4CAF50", "#FFC107", "#2196F3", "#757575")
 
+# Kleurenpalet (Dark Theme)
+COLOR_BG = "#1E1E1E"
+COLOR_SIDEBAR = "#2D2D2D"
+COLOR_TEXT = "#E0E0E0"
+COLOR_ACCENT = "#3498DB"
+COLOR_SUCCESS = "#2ECC71"
+COLOR_ERROR = "#E74C3C"
+
 
 @dataclass(frozen=True)
 class DisplayConfig:
     model_path: str | None = None
-    window_width: int = 800
+    window_width: int = 1024
     window_height: int = 600
-    preview_width: int = 400
-    preview_height: int = 300
+    preview_width: int = 640
+    preview_height: int = 480
     fullscreen: bool = False
     rotate: int = 0
-    update_ms: int = 100
+    update_ms: int = 50
 
 
 def resolve_model_path(model_path: str | None = None) -> str:
@@ -121,152 +129,176 @@ class SmartBinDisplayApp:
         self.root = tk.Tk()
         self.root.title("Smart Bin Display")
         self.root.geometry(f"{self.config.window_width}x{self.config.window_height}")
-        self.root.configure(bg="#f2f2f2")
+        self.root.configure(bg=COLOR_BG)
         self.root.resizable(True, True)
 
         if self.config.fullscreen:
             self.root.attributes("-fullscreen", True)
 
         self.root.bind("<Escape>", lambda _event: self.on_closing())
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
+        # Styling
         self.style = ttk.Style()
-        self.style.configure("Classify.Horizontal.TProgressbar", thickness=10)
-
-        header = tk.Label(
-            self.root,
-            text="Slimme Vuilnisbak",
-            font=("Arial", 11, "bold"),
-            bg="#f2f2f2",
-            fg="#222222",
+        self.style.theme_use("clam")
+        self.style.configure(
+            "Classify.Horizontal.TProgressbar",
+            thickness=15,
+            troughcolor=COLOR_SIDEBAR,
+            background=COLOR_ACCENT,
+            borderwidth=0
         )
-        header.pack(pady=(3, 1))
 
-        content = tk.Frame(self.root, bg="#f2f2f2")
-        content.pack(fill=tk.BOTH, expand=True, padx=4, pady=2)
+        # Main Container
+        main_container = tk.Frame(self.root, bg=COLOR_BG)
+        main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
 
-        preview_frame = tk.Frame(
-            content,
-            bg="black",
-            width=self.config.preview_width,
-            height=self.config.preview_height,
-        )
-        preview_frame.pack(side=tk.LEFT, fill=tk.BOTH)
-        preview_frame.pack_propagate(False)
+        # Left Column (Camera)
+        left_col = tk.Frame(main_container, bg="black", width=self.config.preview_width, height=self.config.preview_height)
+        left_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        left_col.pack_propagate(False)
 
         self.preview_label = tk.Label(
-            preview_frame,
+            left_col,
             bg="black",
             fg="white",
             text="Camera wordt gestart...",
-            font=("Arial", 10),
+            font=("Helvetica", 16),
         )
         self.preview_label.pack(fill=tk.BOTH, expand=True)
 
-        side_panel = tk.Frame(content, bg="#f2f2f2")
-        side_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(8, 0))
+        # Right Column (Sidebar)
+        right_col = tk.Frame(main_container, bg=COLOR_SIDEBAR, width=320)
+        right_col.pack(side=tk.RIGHT, fill=tk.Y, padx=(20, 0))
+        right_col.pack_propagate(False)
 
+        # Header Title
+        tk.Label(
+            right_col,
+            text="Slimme\nAfvalcontainer",
+            font=("Helvetica", 20, "bold"),
+            bg=COLOR_SIDEBAR,
+            fg="white",
+            justify="center",
+        ).pack(pady=(20, 20))
+
+        # Prediction Result (Big)
+        self.prediction_var = tk.StringVar(value="Gereed")
         self.prediction_label = tk.Label(
-            side_panel,
-            text="Wacht op classificatie...",
-            font=("Arial", 10, "bold"),
-            bg="#f2f2f2",
-            fg="#333333",
-            justify="left",
-            anchor="w",
-            wraplength=max(self.config.window_width - self.config.preview_width - 30, 100),
+            right_col,
+            textvariable=self.prediction_var,
+            font=("Helvetica", 24, "bold"),
+            bg=COLOR_SIDEBAR,
+            fg=COLOR_ACCENT,
+            wraplength=280,
+            justify="center"
         )
-        self.prediction_label.pack(fill=tk.X, pady=(0, 2))
+        self.prediction_label.pack(pady=(0, 5))
 
         self.time_label = tk.Label(
-            side_panel,
+            right_col,
             text="",
-            font=("Arial", 8),
-            bg="#f2f2f2",
-            fg="#666666",
-            anchor="w",
+            font=("Helvetica", 10),
+            bg=COLOR_SIDEBAR,
+            fg="#AAAAAA",
         )
-        self.time_label.pack(fill=tk.X, pady=(0, 2))
+        self.time_label.pack(fill=tk.X, pady=(0, 15))
 
-        self.status_label = tk.Label(
-            side_panel,
-            text="",
-            font=("Arial", 8),
-            bg="#f2f2f2",
-            fg="#555555",
-            anchor="w",
-            justify="left",
-            wraplength=max(self.config.window_width - self.config.preview_width - 30, 100),
-        )
-        self.status_label.pack(fill=tk.X, pady=(0, 2))
+        # Progress Bars Container
+        stats_frame = tk.Frame(right_col, bg=COLOR_SIDEBAR)
+        stats_frame.pack(fill=tk.X, padx=15, pady=5)
 
         self.progress_bars: dict[str, dict[str, object]] = {}
         for class_name in self.classes:
-            row = tk.Frame(side_panel, bg="#f2f2f2")
-            row.pack(fill=tk.X, pady=2)
+            row = tk.Frame(stats_frame, bg=COLOR_SIDEBAR)
+            row.pack(fill=tk.X, pady=4)
 
-            label = tk.Label(
-                row,
-                text=f"{class_name}:",
-                font=("Arial", 8),
-                width=8,
-                anchor="w",
-                bg="#f2f2f2",
+            # Label + Percentage on top line
+            info_row = tk.Frame(row, bg=COLOR_SIDEBAR)
+            info_row.pack(fill=tk.X)
+            
+            tk.Label(
+                info_row,
+                text=class_name,
+                font=("Helvetica", 10),
+                bg=COLOR_SIDEBAR,
+                fg=COLOR_TEXT,
+                anchor="w"
+            ).pack(side=tk.LEFT)
+
+            percentage = tk.Label(
+                info_row,
+                text="0%",
+                font=("Helvetica", 10, "bold"),
+                bg=COLOR_SIDEBAR,
+                fg="#888888",
+                anchor="e"
             )
-            label.pack(side=tk.LEFT)
+            percentage.pack(side=tk.RIGHT)
 
+            # Bar
             progress = ttk.Progressbar(
                 row,
-                length=50,
+                length=100,
                 mode="determinate",
                 maximum=100,
                 style="Classify.Horizontal.TProgressbar",
             )
-            progress.pack(side=tk.LEFT, padx=(2, 4))
-
-            percentage = tk.Label(
-                row,
-                text="0%",
-                font=("Arial", 9, "bold"),
-                width=7,
-                anchor="e",
-                bg="#f2f2f2",
-            )
-            percentage.pack(side=tk.LEFT)
+            progress.pack(fill=tk.X, pady=(2, 0))
 
             self.progress_bars[class_name] = {"bar": progress, "label": percentage}
 
-        button_frame = tk.Frame(side_panel, bg="#f2f2f2")
-        button_frame.pack(fill=tk.X, pady=(4, 0))
+        # Buttons
+        button_frame = tk.Frame(right_col, bg=COLOR_SIDEBAR)
+        button_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=20, pady=20)
 
         self.classify_btn = tk.Button(
             button_frame,
-            text="Classificeer",
+            text="ANALYSEER NU",
             command=self.classify_threaded,
-            font=("Arial", 10, "bold"),
-            bg="#4CAF50",
+            font=("Helvetica", 12, "bold"),
+            bg=COLOR_ACCENT,
             fg="white",
-            padx=4,
-            pady=8,
+            activebackground="#2980B9",
+            activeforeground="white",
             relief=tk.FLAT,
             cursor="hand2",
+            padx=10,
+            pady=12
         )
-        self.classify_btn.pack(fill=tk.X, pady=(0, 4))
+        self.classify_btn.pack(fill=tk.X, pady=(0, 10))
 
         self.save_btn = tk.Button(
             button_frame,
-            text="Opslaan",
+            text="OPSLAAN",
             command=lambda: self.classify_threaded(save=True),
-            font=("Arial", 10, "bold"),
-            bg="#2196F3",
+            font=("Helvetica", 10, "bold"),
+            bg="#555555",
             fg="white",
-            padx=4,
-            pady=8,
+            activebackground="#777777",
+            activeforeground="white",
             relief=tk.FLAT,
             cursor="hand2",
+            padx=10,
+            pady=8
         )
         self.save_btn.pack(fill=tk.X)
 
-        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        # Status Bar
+        self.status_label = tk.Label(
+            right_col,
+            text="Initialiseren...",
+            font=("Helvetica", 9),
+            bg=COLOR_SIDEBAR,
+            fg="#666666",
+            anchor="w",
+            padx=10
+        )
+        # We pack status label inside right col at bottom, above buttons? 
+        # Actually putting it at very bottom of Sidebar looks cleaner
+        # Let's repack buttons to be slightly higher or status at very bottom
+        self.status_label.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 5))
+
         self.root.after(50, self._process_worker_messages)
 
     def _initialize_worker(self) -> None:
@@ -318,10 +350,15 @@ class SmartBinDisplayApp:
         if self.config.rotate:
             img = img.rotate(self.config.rotate, expand=True)
 
-        img = img.resize(
-            (self.config.preview_width, self.config.preview_height),
-            Image.Resampling.LANCZOS,
-        )
+        # Slim schalen naar preview venster met behoud van aspect ratio of 'cover'
+        preview_w = self.preview_label.winfo_width()
+        preview_h = self.preview_label.winfo_height()
+
+        if preview_w > 1 and preview_h > 1:
+            img = img.resize((preview_w, preview_h), Image.Resampling.LANCZOS)
+        else:
+            img = img.resize((self.config.preview_width, self.config.preview_height), Image.Resampling.LANCZOS)
+
         photo = ImageTk.PhotoImage(img)
 
         self.preview_label.configure(image=photo, text="")
@@ -429,13 +466,15 @@ class SmartBinDisplayApp:
 
     def _set_buttons_enabled(self, enabled: bool) -> None:
         state = "normal" if enabled else "disabled"
-        self.classify_btn.config(state=state)
+        bg_color = COLOR_ACCENT if enabled else "#555555"
+        self.classify_btn.config(state=state, bg=bg_color)
         self.save_btn.config(state=state)
 
     def _set_error(self, message: str) -> None:
-        self.prediction_label.config(text=f"Fout: {message}", fg="#B00020")
+        self.prediction_label.config(text="Fout", fg=COLOR_ERROR)
+        self.status_label.config(text=f"Fout: {message}", fg=COLOR_ERROR)
 
-    def _set_status(self, message: str, color: str = "#555555") -> None:
+    def _set_status(self, message: str, color: str = "#666666") -> None:
         self.status_label.config(text=message, fg=color)
 
     def _update_results(
@@ -449,26 +488,32 @@ class SmartBinDisplayApp:
             predicted_color = self.colors[predicted_idx]
         else:
             predicted_name = f"Klasse {predicted_idx}"
-            predicted_color = "#333333"
+            predicted_color = COLOR_TEXT
 
         self.prediction_label.config(
-            text=f"Voorspelling: {predicted_name}",
+            text=f"{predicted_name}",
             fg=predicted_color,
         )
         self.time_label.config(text=f"Inferentie: {inference_time:.1f} ms")
 
+        # Update Progress Bars
         for index, class_name in enumerate(self.classes):
             probability = float(probabilities[index]) * 100.0 if index < len(probabilities) else 0.0
             bar = self.progress_bars[class_name]["bar"]
             label = self.progress_bars[class_name]["label"]
+            
             bar["value"] = probability
             label.config(text=f"{probability:.1f}%")
+            
+            # Dynamic color for bar? (Not easy with standard ttk theme on linux without heavy styling)
+            # We keep standard accent color.
 
         predicted_prob = (
             float(probabilities[predicted_idx]) * 100.0
             if predicted_idx < len(probabilities)
             else 0.0
         )
+        # Also print to terminal
         print(
             f"Voorspelling: {predicted_name} "
             f"({predicted_prob:.1f}%)"
