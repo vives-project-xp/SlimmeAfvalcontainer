@@ -1,44 +1,54 @@
 #include <Adafruit_NeoPixel.h>
 
-#define PIN1 7
-#define PIN2 4
-#define PIN3 5
-#define PIN4 6
+#define PIN_REST    4   // strip1
+#define PIN_KARTON  5   // strip2
+#define PIN_EXTRA   6   // strip3 (niet gebruikt in afvalkeuze)
+#define PIN_PMD     7   // strip4
 
-#define NUM_LEDS 5
-#define BRIGHTNESS 10
+#define NUM_LEDS     5
+#define BRIGHTNESS   50
 
-Adafruit_NeoPixel strip1(NUM_LEDS, PIN1, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel strip2(NUM_LEDS, PIN2, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel strip3(NUM_LEDS, PIN3, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel strip4(NUM_LEDS, PIN4, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel stripRest(NUM_LEDS,   PIN_REST,   NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel stripKarton(NUM_LEDS, PIN_KARTON, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel stripExtra(NUM_LEDS,  PIN_EXTRA,  NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel stripPmd(NUM_LEDS,    PIN_PMD,    NEO_GRB + NEO_KHZ800);
 
 enum Choice { NONE, PMD, REST, KARTON };
 Choice currentChoice = NONE;
 
+enum LedMode { MODE_OFF, MODE_SPIN, MODE_BLINK };
+LedMode mode = MODE_OFF;
+
+unsigned long lastAnimMs = 0;
+const unsigned long animIntervalMs = 90;   // snelheid “cirkel”
+
+// Variabelen voor de knipper-animatie
+unsigned long lastBlinkMs = 0;
+const unsigned long blinkIntervalMs = 200; // Snelheid van het knipperen (200ms aan, 200ms uit)
+int blinkStateCount = 0;                   // Houdt bij in welke stap van de knipper we zitten
+
+int spinIndex = 0;
+
 void setup() {
   Serial.begin(115200);
-  while (!Serial) { delay(10); }
 
-  strip1.begin(); strip2.begin(); strip3.begin(); strip4.begin();
-  strip1.setBrightness(BRIGHTNESS);
-  strip2.setBrightness(BRIGHTNESS);
-  strip3.setBrightness(BRIGHTNESS);
-  strip4.setBrightness(BRIGHTNESS);
+  stripRest.begin(); stripKarton.begin(); stripExtra.begin(); stripPmd.begin();
+  stripRest.setBrightness(BRIGHTNESS);
+  stripKarton.setBrightness(BRIGHTNESS);
+  stripExtra.setBrightness(BRIGHTNESS);
+  stripPmd.setBrightness(BRIGHTNESS);
 
-  clearAll();
+  allOff();
 
-  Serial.println("Typ: pmd | restafval | karton");
-  Serial.println("Extra: status | off");
+  Serial.println("Commands:");
+  Serial.println("  pmd | rest | karton  -> start spinning green on that strip");
+  Serial.println("  hit                -> blink solid green 2x then all off");
+  Serial.println("  off                -> all off");
 }
 
 void loop() {
   handleSerial();
-
-  // Update LEDs volgens keuze
-  showChoice(currentChoice);
-
-  delay(50);
+  updateLeds();
 }
 
 void handleSerial() {
@@ -50,63 +60,155 @@ void handleSerial() {
 
   if (cmd == "pmd") {
     currentChoice = PMD;
-    Serial.println("OK: PMD geselecteerd (strip op pin 7 wordt GROEN).");
+    startSpin();
+    Serial.println("OK: PMD -> spinning green on pin 7.");
   } 
-  else if (cmd == "restafval" || cmd == "rest") {
+  else if (cmd == "rest" || cmd == "restafval") {
     currentChoice = REST;
-    Serial.println("OK: RESTAFVAL geselecteerd (strip op pin 4 wordt GROEN).");
+    startSpin();
+    Serial.println("OK: REST -> spinning green on pin 4.");
   } 
   else if (cmd == "karton") {
     currentChoice = KARTON;
-    Serial.println("OK: KARTON geselecteerd (strip op pin 5 wordt GROEN).");
-  } 
+    startSpin();
+    Serial.println("OK: KARTON -> spinning green on pin 5.");
+  }
+  else if (cmd == "hit") {
+    if (currentChoice != NONE) {
+      startBlink();
+      Serial.println("OK: HIT -> blinking green 2x, then off.");
+    } else {
+      Serial.println("HIT ignored (no active choice).");
+    }
+  }
   else if (cmd == "off") {
     currentChoice = NONE;
-    clearAll();
-    Serial.println("OK: alles uit.");
-  }
-  else if (cmd == "status") {
-    Serial.print("Huidige keuze: ");
-    if (currentChoice == PMD) Serial.println("PMD");
-    else if (currentChoice == REST) Serial.println("RESTAFVAL");
-    else if (currentChoice == KARTON) Serial.println("KARTON");
-    else Serial.println("NONE");
+    mode = MODE_OFF;
+    allOff();
+    Serial.println("OK: all off.");
   }
   else {
-    Serial.println("Onbekend commando. Gebruik: pmd | restafval | karton | status | off");
+    Serial.println("Unknown. Use: pmd | rest | karton | hit | off");
   }
 }
 
-void showChoice(Choice c) {
-  uint32_t RED   = strip1.Color(255, 0, 0);
-  uint32_t GREEN = strip1.Color(0, 255, 0);
-  uint32_t OFF   = strip1.Color(0, 0, 0);
-
-  // Default: alles rood (of uit als NONE)
-  uint32_t c1 = (c == NONE) ? OFF : RED;
-  uint32_t c2 = (c == NONE) ? OFF : RED;
-  uint32_t c3 = (c == NONE) ? OFF : RED;
-  uint32_t c4 = (c == NONE) ? OFF : RED;
-
-  // Zet gekozen strip groen
-  if (c == PMD)   c1 = GREEN;   // pin 7
-  if (c == REST)  c2 = GREEN;   // pin 4
-  if (c == KARTON)c3 = GREEN;   // pin 5
-
-  fillStrip(strip1, c1);
-  fillStrip(strip2, c2);
-  fillStrip(strip3, c3);
-  fillStrip(strip4, c4);
+void startSpin() {
+  mode = MODE_SPIN;
+  spinIndex = 0;
+  lastAnimMs = 0;
+  allOff();
 }
 
-void fillStrip(Adafruit_NeoPixel &strip, uint32_t color) {
-  for (int i = 0; i < NUM_LEDS; i++) strip.setPixelColor(i, color);
-  strip.show();
+void startBlink() {
+  mode = MODE_BLINK;
+  blinkStateCount = 0;
+  lastBlinkMs = millis();
+  showSolidGreen(currentChoice); 
 }
 
-void clearAll() {
-  strip1.clear(); strip1.show();
-  strip2.clear(); strip2.show();
-  strip3.clear(); strip3.show();
-  strip4.clear(); strip4.show();
+void updateLeds() {
+  unsigned long now = millis();
+
+  if (mode == MODE_OFF || currentChoice == NONE) {
+    return;
+  }
+
+  if (mode == MODE_SPIN) {
+    if (now - lastAnimMs >= animIntervalMs) {
+      lastAnimMs = now;
+      showSpinningGreen(currentChoice, spinIndex);
+      spinIndex = (spinIndex + 1) % NUM_LEDS;
+    }
+  }
+  else if (mode == MODE_BLINK) {
+    if (now - lastBlinkMs >= blinkIntervalMs) {
+      lastBlinkMs = now;
+      blinkStateCount++;
+
+      if (blinkStateCount >= 8) {
+        mode = MODE_OFF;
+        currentChoice = NONE;
+        allOff();
+      } else {
+
+        if (blinkStateCount % 2 == 1) {
+          allOff();
+        } else {
+          showSolidGreen(currentChoice);
+        }
+      }
+    }
+  }
+}
+
+Adafruit_NeoPixel* getStripForChoice(Choice c) {
+  if (c == REST) return &stripRest;     // pin 4
+  if (c == KARTON) return &stripKarton; // pin 5
+  if (c == PMD) return &stripPmd;       // pin 7
+  return nullptr;
+}
+
+void allOff() {
+  stripRest.clear(); stripRest.show();
+  stripKarton.clear(); stripKarton.show();
+  stripExtra.clear(); stripExtra.show();
+  stripPmd.clear(); stripPmd.show();
+}
+
+void showSpinningGreen(Choice c, int idx) {
+  // Bepaal de kleuren
+  uint32_t GREEN = stripRest.Color(0, 255, 0);
+  uint32_t RED   = stripRest.Color(255, 0, 0);
+
+  // Zet eerst alle strips volledig rood
+  for (int i = 0; i < NUM_LEDS; i++) {
+    stripRest.setPixelColor(i, RED);
+    stripKarton.setPixelColor(i, RED);
+    stripExtra.setPixelColor(i, RED);
+    stripPmd.setPixelColor(i, RED);
+  }
+
+  // Wis alleen de gekozen strip (zodat de rest van die specifieke strip uit is) 
+  // en zet het draaiende groene lampje aan
+  if (c == REST) {
+    stripRest.clear();
+    stripRest.setPixelColor(idx, GREEN);
+  } else if (c == KARTON) {
+    stripKarton.clear();
+    stripKarton.setPixelColor(idx, GREEN);
+  } else if (c == PMD) {
+    stripPmd.clear();
+    stripPmd.setPixelColor(idx, GREEN);
+  }
+
+  // update de strips
+  stripRest.show();
+  stripKarton.show();
+  stripExtra.show();
+  stripPmd.show();
+}
+
+void showSolidGreen(Choice c) {
+  // alles uit
+  stripRest.clear();
+  stripKarton.clear();
+  stripExtra.clear();
+  stripPmd.clear();
+
+  uint32_t greenRest = stripRest.Color(0, 255, 0);
+  uint32_t greenKarton = stripKarton.Color(0, 255, 0);
+  uint32_t greenPmd = stripPmd.Color(0, 255, 0);
+
+  if (c == REST) {
+    for (int i = 0; i < NUM_LEDS; i++) stripRest.setPixelColor(i, greenRest);
+  } else if (c == KARTON) {
+    for (int i = 0; i < NUM_LEDS; i++) stripKarton.setPixelColor(i, greenKarton);
+  } else if (c == PMD) {
+    for (int i = 0; i < NUM_LEDS; i++) stripPmd.setPixelColor(i, greenPmd);
+  }
+
+  stripRest.show();
+  stripKarton.show();
+  stripExtra.show();
+  stripPmd.show();
 }
