@@ -40,10 +40,10 @@ DEFAULT_COLORS = ("#4CAF50", "#FFC107", "#2196F3", "#757575")
 @dataclass(frozen=True)
 class DisplayConfig:
     model_path: str | None = None
-    window_width: int = 480
-    window_height: int = 320
-    preview_width: int = 300
-    preview_height: int = 225
+    window_width: int = 800
+    window_height: int = 600
+    preview_width: int = 400
+    preview_height: int = 300
     fullscreen: bool = False
     rotate: int = 0
     update_ms: int = 100
@@ -113,7 +113,7 @@ class SmartBinDisplayApp:
         self.root.title("Smart Bin Display")
         self.root.geometry(f"{self.config.window_width}x{self.config.window_height}")
         self.root.configure(bg="#f2f2f2")
-        self.root.resizable(False, False)
+        self.root.resizable(True, True)
 
         if self.config.fullscreen:
             self.root.attributes("-fullscreen", True)
@@ -121,19 +121,19 @@ class SmartBinDisplayApp:
         self.root.bind("<Escape>", lambda _event: self.on_closing())
 
         self.style = ttk.Style()
-        self.style.configure("Classify.Horizontal.TProgressbar", thickness=12)
+        self.style.configure("Classify.Horizontal.TProgressbar", thickness=10)
 
         header = tk.Label(
             self.root,
             text="Slimme Vuilnisbak",
-            font=("Arial", 14, "bold"),
+            font=("Arial", 11, "bold"),
             bg="#f2f2f2",
             fg="#222222",
         )
-        header.pack(pady=(6, 2))
+        header.pack(pady=(3, 1))
 
         content = tk.Frame(self.root, bg="#f2f2f2")
-        content.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
+        content.pack(fill=tk.BOTH, expand=True, padx=4, pady=2)
 
         preview_frame = tk.Frame(
             content,
@@ -159,36 +159,36 @@ class SmartBinDisplayApp:
         self.prediction_label = tk.Label(
             side_panel,
             text="Wacht op classificatie...",
-            font=("Arial", 12, "bold"),
+            font=("Arial", 10, "bold"),
             bg="#f2f2f2",
             fg="#333333",
             justify="left",
             anchor="w",
-            wraplength=max(self.config.window_width - self.config.preview_width - 40, 120),
+            wraplength=max(self.config.window_width - self.config.preview_width - 30, 100),
         )
-        self.prediction_label.pack(fill=tk.X, pady=(0, 4))
+        self.prediction_label.pack(fill=tk.X, pady=(0, 2))
 
         self.time_label = tk.Label(
             side_panel,
             text="",
-            font=("Arial", 10),
+            font=("Arial", 8),
             bg="#f2f2f2",
             fg="#666666",
             anchor="w",
         )
-        self.time_label.pack(fill=tk.X, pady=(0, 6))
+        self.time_label.pack(fill=tk.X, pady=(0, 2))
 
         self.status_label = tk.Label(
             side_panel,
             text="",
-            font=("Arial", 9),
+            font=("Arial", 8),
             bg="#f2f2f2",
             fg="#555555",
             anchor="w",
             justify="left",
-            wraplength=max(self.config.window_width - self.config.preview_width - 40, 120),
+            wraplength=max(self.config.window_width - self.config.preview_width - 30, 100),
         )
-        self.status_label.pack(fill=tk.X, pady=(0, 6))
+        self.status_label.pack(fill=tk.X, pady=(0, 2))
 
         self.progress_bars: dict[str, dict[str, object]] = {}
         for class_name in self.classes:
@@ -198,8 +198,8 @@ class SmartBinDisplayApp:
             label = tk.Label(
                 row,
                 text=f"{class_name}:",
-                font=("Arial", 9),
-                width=9,
+                font=("Arial", 8),
+                width=8,
                 anchor="w",
                 bg="#f2f2f2",
             )
@@ -207,18 +207,18 @@ class SmartBinDisplayApp:
 
             progress = ttk.Progressbar(
                 row,
-                length=110,
+                length=50,
                 mode="determinate",
                 maximum=100,
                 style="Classify.Horizontal.TProgressbar",
             )
-            progress.pack(side=tk.LEFT, padx=(4, 6))
+            progress.pack(side=tk.LEFT, padx=(2, 4))
 
             percentage = tk.Label(
                 row,
                 text="0%",
-                font=("Arial", 9),
-                width=5,
+                font=("Arial", 9, "bold"),
+                width=7,
                 anchor="e",
                 bg="#f2f2f2",
             )
@@ -227,7 +227,7 @@ class SmartBinDisplayApp:
             self.progress_bars[class_name] = {"bar": progress, "label": percentage}
 
         button_frame = tk.Frame(side_panel, bg="#f2f2f2")
-        button_frame.pack(fill=tk.X, pady=(8, 0))
+        button_frame.pack(fill=tk.X, pady=(4, 0))
 
         self.classify_btn = tk.Button(
             button_frame,
@@ -236,20 +236,24 @@ class SmartBinDisplayApp:
             font=("Arial", 10, "bold"),
             bg="#4CAF50",
             fg="white",
-            padx=8,
-            pady=6,
+            padx=4,
+            pady=8,
+            relief=tk.FLAT,
+            cursor="hand2",
         )
         self.classify_btn.pack(fill=tk.X, pady=(0, 4))
 
         self.save_btn = tk.Button(
             button_frame,
-            text="Classificeer + Opslaan",
+            text="Opslaan",
             command=lambda: self.classify_threaded(save=True),
             font=("Arial", 10, "bold"),
             bg="#2196F3",
             fg="white",
-            padx=8,
-            pady=6,
+            padx=4,
+            pady=8,
+            relief=tk.FLAT,
+            cursor="hand2",
         )
         self.save_btn.pack(fill=tk.X)
 
@@ -297,6 +301,8 @@ class SmartBinDisplayApp:
             self.root.after(self.config.update_ms, self.update_preview)
             return
 
+        # Picamera2 levert BGR, PIL verwacht RGB – draai kanalen om
+        image = image[:, :, ::-1]
         self.latest_frame = image.copy()
         img = Image.fromarray(image)
 
@@ -368,7 +374,12 @@ class SmartBinDisplayApp:
         outputs = self.session.run(None, {self.input_name: img_array})
         inference_time = (time.time() - start) * 1000
 
-        probabilities = np.asarray(outputs[0][0], dtype=np.float32)
+        raw_output = np.asarray(outputs[0][0], dtype=np.float32)
+        # Apply softmax explicitly to ensure we have probabilities (0-1)
+        # This fixes issues where the model outputs logits (unbounded numbers)
+        exp_x = np.exp(raw_output - np.max(raw_output))
+        probabilities = exp_x / exp_x.sum()
+
         predicted_idx = int(np.argmax(probabilities))
         self.result_queue.put(("result", (probabilities, predicted_idx, inference_time)))
 
@@ -467,25 +478,25 @@ class SmartBinDisplayApp:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Smart Bin 3.5-inch Display GUI")
+    parser = argparse.ArgumentParser(description="Smart Bin Display GUI")
     parser.add_argument(
         "--model",
         dest="model_path",
         default=None,
         help="Pad naar ONNX-modelbestand (bijv. model.onnx)",
     )
-    parser.add_argument("--width", type=int, default=480, help="Display breedte in pixels")
-    parser.add_argument("--height", type=int, default=320, help="Display hoogte in pixels")
+    parser.add_argument("--width", type=int, default=800, help="Display breedte in pixels")
+    parser.add_argument("--height", type=int, default=600, help="Display hoogte in pixels")
     parser.add_argument(
         "--preview-width",
         type=int,
-        default=300,
+        default=400,
         help="Breedte van camera preview",
     )
     parser.add_argument(
         "--preview-height",
         type=int,
-        default=225,
+        default=300,
         help="Hoogte van camera preview",
     )
     parser.add_argument(
@@ -498,7 +509,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--fullscreen",
         action="store_true",
-        help="Start in fullscreen mode (handig op dedicated Pi display)",
+        default=False,
+        help="Start in fullscreen mode",
+    )
+    parser.add_argument(
+        "--no-fullscreen",
+        dest="fullscreen",
+        action="store_false",
+        help="Schakel fullscreen uit (bijv. voor desktop gebruik)",
     )
     return parser.parse_args()
 
