@@ -63,7 +63,11 @@ def resolve_model_path(model_path: str | None = None) -> str:
             candidates.append((script_dir / user_path).resolve())
 
     candidates.append((script_dir / "model.onnx").resolve())
-    candidates.append((script_dir / "modelv2.onnx").resolve())
+
+    # Zoek ook in de Ai-model map
+    ai_dir = script_dir.parent / "Ai-model"
+    if ai_dir.exists():
+        candidates.append((ai_dir / "model.onnx").resolve())
 
     checked: list[Path] = []
     seen: set[str] = set()
