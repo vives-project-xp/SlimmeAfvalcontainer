@@ -64,7 +64,12 @@ def resolve_model_path(model_path: str | None = None) -> str:
 
     candidates.append((script_dir / "model.onnx").resolve())
 
-    # Zoek ook in de Ai-model map
+    # Zoek in de AI map (Code PI/AI)
+    ai_subdir = script_dir / "AI"
+    if ai_subdir.exists():
+        candidates.append((ai_subdir / "model.onnx").resolve())
+
+    # Zoek ook in de Ai-model map (Fallback)
     ai_dir = script_dir.parent / "Ai-model"
     if ai_dir.exists():
         candidates.append((ai_dir / "model.onnx").resolve())
