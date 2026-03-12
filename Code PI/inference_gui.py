@@ -327,11 +327,13 @@ class InferenceGUI:
                 if potential_ports:
                     # Neem de eerste (dus voorkeur voor UART)
                     port_device = potential_ports[0]
-                    print(f"Connecting to Serial: {port_device}")
-                    ser = serial.Serial(port_device, 115200, timeout=1)
-                    time.sleep(2) # Stabilize connection
                 else:
-                    print("No Serial/UART port found.")
+                     # FORCEER SERIAL0 ALS FALLBACK
+                     port_device = "/dev/serial0"
+                     
+                print(f"Connecting to Serial: {port_device}")
+                ser = serial.Serial(port_device, 115200, timeout=1)
+                time.sleep(2) # Stabilize connection
             except Exception as e:
                 print(f"Serial connection failed: {e}")
 
@@ -597,7 +599,8 @@ class InferenceGUI:
                 if 0 <= predicted_idx < len(cmds):
                     cmd = cmds[predicted_idx]
                     try:
-                        self.serial.write(f"{cmd}\n".encode())
+                        self.serial.write(f"{cmd}\r\n".encode())
+                        self.serial.flush()
                         # Update status with sent command
                         self.set_status(f"Verzonden: {cmd.upper()} -> {self.serial.port}", COLOR_SUCCESS)
                     except Exception as e:
