@@ -9,8 +9,7 @@ import numpy as np
 import onnxruntime as ort
 import tkinter as tk
 from tkinter import ttk
-import serial
-import serial.tools.list_ports
+from led_controller import LedController
 
 try:
     from picamera2 import Picamera2
@@ -130,7 +129,7 @@ class InferenceGUI:
         self.session: ort.InferenceSession | None = None
         self.input_name: str | None = None
         self.camera: Picamera2 | None = None
-        self.serial: serial.Serial | None = None
+        self.led: LedController | None = None
 
         self.setup_ui()
         self.update_ui_state(enabled=False)
@@ -315,55 +314,18 @@ class InferenceGUI:
             camera.start()
             time.sleep(1)
 
-            ser = None
-            try:
-                print("Scanning for serial ports...")
-                ports = serial.tools.list_ports.comports()
-                for p in ports:
-                    print(f"Found port: {p.device} - {p.description}")
-                
-                potential_ports = []
-                
-                # 1. Check Hardware UART (GPIO pinnen op de Pi)
-                # Op Pi is /dev/serial0 meestal de alias voor de actieve UART
-                uart_options = ["/dev/serial0", "/dev/ttyS0", "/dev/ttyAMA0"]
-                for u in uart_options:
-                    try:
-                        if Path(u).exists():
-                            potential_ports.append(u)
-                    except Exception:
-                        pass # Ignore permission errors check
-
-                # 2. Check USB poorten (als fallback of optie)
-                usb_ports = [
-                    p.device for p in ports 
-                    if 'USB' in p.description or 'CP210' in p.description or 'ttyUSB' in p.device or 'ttyACM' in p.device
-                ]
-                potential_ports.extend(usb_ports)
-                
-                if potential_ports:
-                    # Neem de eerste (dus voorkeur voor UART)
-                    port_device = potential_ports[0]
-                else:
-                     # FORCEER SERIAL0 ALS FALLBACK
-                     port_device = "/dev/serial0"
-                     
-                print(f"Connecting to Serial: {port_device}")
-                ser = serial.Serial(port_device, 115200, timeout=1)
-                time.sleep(2) # Stabilize connection
-            except Exception as e:
-                print(f"Serial connection failed: {e}")
+            print("Initializing LED controller...")
+            led = LedController()
 
             if not self.running:
                 camera.stop()
-                if ser and ser.is_open:
-                    ser.close()
+                led.close()
                 return
             
             # Detecteer output names (nodig voor object detection)
             output_names = [o.name for o in session.get_outputs()]
 
-            self.result_queue.put(("init_ok", (session, input_name, input_shape, output_names, camera, resolved_model, ser)))
+            self.result_queue.put(("init_ok", (session, input_name, input_shape, output_names, camera, resolved_model, led)))
         except Exception as exc:
             self.result_queue.put(("init_error", str(exc)))
 
@@ -576,20 +538,20 @@ class InferenceGUI:
             elif message_type == "error":
                 self.set_status(f"Fout: {payload}", COLOR_ERROR)
             elif message_type == "init_ok":
-                session, input_name, input_shape, output_names, camera, resolved_model, ser = payload
+                session, input_name, input_shape, output_names, camera, resolved_model, led = payload
                 self.session = session
                 self.input_name = input_name
                 self.input_shape = input_shape
                 self.output_names = output_names
                 self.camera = camera
-                self.serial = ser
+                self.led = led
                 self.initialized = True
-                
+
                 status_text = f"Klaar. Model: {Path(resolved_model).name}"
-                if self.serial and self.serial.is_open:
-                     status_text += f" | ESP32: {self.serial.port}"
+                if self.led and self.led.enabled:
+                    status_text += " | LED OK"
                 else:
-                     status_text += " | No ESP32"
+                    status_text += " | LED (uitgeschakeld)"
 
                 self.set_status(status_text, COLOR_SUCCESS)
                 self.update_ui_state(enabled=True)
@@ -608,21 +570,16 @@ class InferenceGUI:
             name = self.classes[predicted_idx]
             color = self.colors[predicted_idx]
             
-            # Serial Command to ESP32
-            if self.serial and self.serial.is_open:
+            # LED-strip aansturen via lokale controller
+            if self.led:
                 # ("Organisch", "PMD", "Papier", "Restafval")
                 # 0->organisch, 1->pmd, 2->karton, 3->rest
                 cmds = ["organisch", "pmd", "karton", "rest"]
                 if 0 <= predicted_idx < len(cmds):
                     cmd = cmds[predicted_idx]
-                    try:
-                        self.serial.write(f"{cmd}\r\n".encode())
-                        self.serial.flush()
-                        # Update status with sent command
-                        self.set_status(f"Verzonden: {cmd.upper()} -> {self.serial.port}", COLOR_SUCCESS)
-                    except Exception as e:
-                        print(f"Serial Write Error: {e}")
-                        self.set_status(f"Seriele Fout: {e}", COLOR_ERROR)
+                    response = self.led.send_command(cmd)
+                    print(f"[LED] {response}")
+                    self.set_status(f"LED: {response}", COLOR_SUCCESS)
         else:
             name = f"Onbekend ({predicted_idx})"
             color = COLOR_TEXT
@@ -644,17 +601,10 @@ class InferenceGUI:
         self.prediction_label.config(fg=COLOR_ACCENT)
         self.confidence_var.set("-- %")
         
-        # Stuur reset command naar ESP32
-        if self.serial and self.serial.is_open:
-            try:
-                self.serial.write(b"reset\r\n")
-                self.serial.flush()
-                self.set_status("Reset verzonden naar ESP32", COLOR_SUCCESS)
-            except Exception as e:
-                print(f"Serial Reset Error: {e}")
-                self.set_status("Gereset", COLOR_SUCCESS)
-        else:
-            self.set_status("Gereset", COLOR_SUCCESS)
+        # Reset ledstrips
+        if self.led:
+            self.led.send_command("reset")
+        self.set_status("Gereset", COLOR_SUCCESS)
         
         # Heractiveer de UI
         if self.initialized:
@@ -682,6 +632,8 @@ class InferenceGUI:
         try:
             if self.camera is not None:
                 self.camera.stop()
+            if self.led is not None:
+                self.led.close()
         finally:
             self.root.destroy()
 
