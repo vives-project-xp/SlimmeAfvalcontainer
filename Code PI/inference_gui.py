@@ -151,7 +151,8 @@ class InferenceGUI:
         if self.config.fullscreen:
             self.root.attributes("-fullscreen", True)
         
-        self.root.bind("<Escape>", lambda _event: self.on_closing())
+        self.root.bind("<Escape>", lambda _event: self.toggle_fullscreen())
+        self.root.bind("<F11>", lambda _event: self.toggle_fullscreen())
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # Styling
@@ -237,6 +238,22 @@ class InferenceGUI:
             cursor="hand2"
         )
         self.btn_classify.pack(fill=tk.X, pady=10)
+
+        self.btn_reset = tk.Button(
+            btn_frame,
+            text="RESET",
+            command=self.reset_classification,
+            font=("Helvetica", 14, "bold"),
+            bg=COLOR_ERROR,
+            fg="white",
+            activebackground="#C0392B",
+            activeforeground="white",
+            bd=0,
+            padx=10,
+            pady=15,
+            cursor="hand2"
+        )
+        self.btn_reset.pack(fill=tk.X, pady=10)
 
         # Status Balk (onderaan)
         self.status_var = tk.StringVar(value="")
@@ -617,14 +634,48 @@ class InferenceGUI:
         self.confidence_var.set(f"{prob:.1f}% zekerheid")
         self.set_status(f"Inferentie tijd: {inference_time:.1f}ms", "#888888")
 
+    def reset_classification(self) -> None:
+        """Reset de classificatie en stop eventuele actieve analyses."""
+        # Stop de worker
+        self.worker_active = False
+        
+        # Reset de display
+        self.prediction_var.set("Gereed")
+        self.prediction_label.config(fg=COLOR_ACCENT)
+        self.confidence_var.set("-- %")
+        
+        # Stuur reset command naar ESP32
+        if self.serial and self.serial.is_open:
+            try:
+                self.serial.write(b"reset\r\n")
+                self.serial.flush()
+                self.set_status("Reset verzonden naar ESP32", COLOR_SUCCESS)
+            except Exception as e:
+                print(f"Serial Reset Error: {e}")
+                self.set_status("Gereset", COLOR_SUCCESS)
+        else:
+            self.set_status("Gereset", COLOR_SUCCESS)
+        
+        # Heractiveer de UI
+        if self.initialized:
+            self.update_ui_state(enabled=True)
+
     def update_ui_state(self, enabled: bool) -> None:
         state = "normal" if enabled else "disabled"
         bg_color = COLOR_ACCENT if enabled else "#555555"
         self.btn_classify.config(state=state, bg=bg_color)
+        # Reset button blijft altijd enabled als systeem geïnitialiseerd is
+        if self.initialized:
+            self.btn_reset.config(state="normal")
 
     def set_status(self, text: str, color: str) -> None:
         self.status_var.set(text)
         # self.status_bar.config(fg=color) # Optioneel
+
+    def toggle_fullscreen(self) -> None:
+        """Toggle fullscreen mode on/off."""
+        current = self.root.attributes("-fullscreen")
+        self.root.attributes("-fullscreen", not current)
 
     def on_closing(self) -> None:
         self.running = False
