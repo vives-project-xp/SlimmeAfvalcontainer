@@ -13,7 +13,7 @@ Adafruit_NeoPixel stripKarton(NUM_LEDS, PIN_KARTON, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel stripExtra(NUM_LEDS,  PIN_EXTRA,  NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel stripPmd(NUM_LEDS,    PIN_PMD,    NEO_GRB + NEO_KHZ800);
 
-enum Choice { NONE, PMD, REST, KARTON };
+enum Choice { NONE, PMD, REST, KARTON, ORGANISCH };
 Choice currentChoice = NONE;
 
 enum LedMode { MODE_OFF, MODE_SPIN, MODE_BLINK };
@@ -72,6 +72,11 @@ void handleSerial() {
     currentChoice = KARTON;
     startSpin();
     Serial.println("OK: KARTON -> spinning green on pin 5.");
+  }
+  else if (cmd == "organisch") {
+    currentChoice = ORGANISCH;
+    startSpin();
+    Serial.println("OK: ORGANISCH -> spinning green on pin 6.");
   }
   else if (cmd == "hit") {
     if (currentChoice != NONE) {
@@ -145,6 +150,7 @@ Adafruit_NeoPixel* getStripForChoice(Choice c) {
   if (c == REST) return &stripRest;     // pin 4
   if (c == KARTON) return &stripKarton; // pin 5
   if (c == PMD) return &stripPmd;       // pin 7
+  if (c == ORGANISCH) return &stripExtra; // pin 6
   return nullptr;
 }
 
@@ -179,6 +185,9 @@ void showSpinningGreen(Choice c, int idx) {
   } else if (c == PMD) {
     stripPmd.clear();
     stripPmd.setPixelColor(idx, GREEN);
+  } else if (c == ORGANISCH) {
+    stripExtra.clear();
+    stripExtra.setPixelColor(idx, GREEN);
   }
 
   // update de strips
@@ -198,6 +207,7 @@ void showSolidGreen(Choice c) {
   uint32_t greenRest = stripRest.Color(0, 255, 0);
   uint32_t greenKarton = stripKarton.Color(0, 255, 0);
   uint32_t greenPmd = stripPmd.Color(0, 255, 0);
+  uint32_t greenExtra = stripExtra.Color(0, 255, 0);
 
   if (c == REST) {
     for (int i = 0; i < NUM_LEDS; i++) stripRest.setPixelColor(i, greenRest);
@@ -205,6 +215,8 @@ void showSolidGreen(Choice c) {
     for (int i = 0; i < NUM_LEDS; i++) stripKarton.setPixelColor(i, greenKarton);
   } else if (c == PMD) {
     for (int i = 0; i < NUM_LEDS; i++) stripPmd.setPixelColor(i, greenPmd);
+  } else if (c == ORGANISCH) {
+    for (int i = 0; i < NUM_LEDS; i++) stripExtra.setPixelColor(i, greenExtra);
   }
 
   stripRest.show();
