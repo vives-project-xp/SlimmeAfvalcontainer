@@ -18,7 +18,7 @@
 // Alle strips met de library adafruitneopixel meegeven
 Adafruit_NeoPixel stripRest(NUM_REST,       PIN_REST,      NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel stripKarton(NUM_KARTON,   PIN_KARTON,    NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel stripExtra(NUM_ORGANISCH, PIN_ORGANISCH, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel stripOrganisch(NUM_ORGANISCH, PIN_ORGANISCH, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel stripPmd(NUM_PMD,         PIN_PMD,       NEO_GRB + NEO_KHZ800);
 
 uint32_t COLOR_RED   = 0;
@@ -46,7 +46,7 @@ void setStrip(Adafruit_NeoPixel &strip, uint32_t color) {
 void allOff() {
   setStrip(stripRest,   0);
   setStrip(stripKarton, 0);
-  setStrip(stripExtra,  0);
+  setStrip(stripOrganisch,  0);
   setStrip(stripPmd,    0);
 }
 
@@ -55,7 +55,7 @@ void setup() {
 
   stripRest.begin();
   stripKarton.begin();
-  stripExtra.begin();
+  stripOrganisch.begin();
   stripPmd.begin();
 
   COLOR_RED          = stripRest.Color(STATIC_BRIGHTNESS, 0, 0);
@@ -78,17 +78,21 @@ void handleSerial() {
   cmd.trim();
   cmd.toLowerCase();
 
-  if      (cmd == "pmd")                        { currentChoice = PMD;      startStatic(); }
-  else if (cmd == "rest")                       { currentChoice = REST;     startStatic(); }
-  else if (cmd == "karton" || cmd == "papier")  { currentChoice = KARTON;   startStatic(); }
-  else if (cmd == "organisch" || cmd == "bio")  { currentChoice = ORGANISCH;startStatic(); }
+  if      (cmd == "pmd")                        { currentChoice = PMD;      startStatic(); Serial.println("OK: PMD"); }
+  else if (cmd == "rest")                       { currentChoice = REST;     startStatic(); Serial.println("OK: REST"); }
+  else if (cmd == "karton" || cmd == "papier")  { currentChoice = KARTON;   startStatic(); Serial.println("OK: KARTON"); }
+  else if (cmd == "organisch" || cmd == "bio")  { currentChoice = ORGANISCH;startStatic(); Serial.println("OK: ORGANISCH"); }
   else if (cmd == "hit") {
-    if (currentChoice != NONE) startBlink();
+    if (currentChoice != NONE) {
+       startBlink();
+       Serial.println("OK: HIT");
+    }
   }
   else if (cmd == "off") {
     currentChoice = NONE;
     mode = MODE_OFF;
     allOff();
+    Serial.println("OK: OFF");
   }
 }
 
@@ -107,14 +111,14 @@ void updateStrips() {
   setStrip(stripRest,   (currentChoice == REST)      ? COLOR_GREEN : COLOR_RED);
   setStrip(stripKarton, (currentChoice == KARTON)    ? COLOR_GREEN : COLOR_RED);
   setStrip(stripPmd,    (currentChoice == PMD)       ? COLOR_GREEN : COLOR_RED);
-  setStrip(stripExtra,  (currentChoice == ORGANISCH) ? COLOR_GREEN : COLOR_RED);
+  setStrip(stripOrganisch,  (currentChoice == ORGANISCH) ? COLOR_GREEN : COLOR_RED);
 }
 // Gekozen ledstrip groen doen
 void showFullGreen(Choice c) {
   setStrip(stripRest,   (c == REST)      ? COLOR_GREEN_BRIGHT : 0);
   setStrip(stripKarton, (c == KARTON)    ? COLOR_GREEN_BRIGHT : 0);
   setStrip(stripPmd,    (c == PMD)       ? COLOR_GREEN_BRIGHT : 0);
-  setStrip(stripExtra,  (c == ORGANISCH) ? COLOR_GREEN_BRIGHT : 0);
+  setStrip(stripOrganisch,  (c == ORGANISCH) ? COLOR_GREEN_BRIGHT : 0);
 }
 
 void updateLeds() {
