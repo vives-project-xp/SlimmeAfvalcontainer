@@ -238,21 +238,25 @@ class InferenceGUI:
         )
         self.btn_classify.pack(fill=tk.X, pady=10)
 
+        # Extra ruimte tussen de knoppen
+        spacer = tk.Frame(btn_frame, bg=COLOR_SIDEBAR, height=30)
+        spacer.pack()
+
         self.btn_reset = tk.Button(
             btn_frame,
-            text="RESET",
+            text="Reset",
             command=self.reset_classification,
-            font=("Helvetica", 14, "bold"),
-            bg=COLOR_ERROR,
+            font=("Helvetica", 10),
+            bg="#555555",
             fg="white",
-            activebackground="#C0392B",
+            activebackground="#444444",
             activeforeground="white",
             bd=0,
-            padx=10,
-            pady=15,
+            padx=8,
+            pady=8,
             cursor="hand2"
         )
-        self.btn_reset.pack(fill=tk.X, pady=10)
+        self.btn_reset.pack(pady=5)
 
         # Status Balk (onderaan)
         self.status_var = tk.StringVar(value="")
