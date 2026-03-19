@@ -1,0 +1,19 @@
+[Unit]
+Description=SlimmeAfvalcontainer Inference GUI
+After=network-online.target graphical.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kobe
+Environment="DISPLAY=:0"
+Environment="XAUTHORITY=/home/kobe/.Xauthority"
+WorkingDirectory=/home/kobe/SlimmeAfvalcontainer/Code PI
+ExecStart=/home/kobe/SlimmeAfvalcontainer/venv_ssp/bin/python /home/kobe/SlimmeAfvalcontainer/Code\ PI/inference_gui_v2.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=graphical.target

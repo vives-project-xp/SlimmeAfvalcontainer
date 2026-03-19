@@ -34,8 +34,28 @@ except ImportError as exc:
     ) from exc
 
 
-DEFAULT_CLASSES = ("Organisch", "PMD", "Papier", "Restafval")
-DEFAULT_COLORS = ("#4CAF50", "#FFC107", "#2196F3", "#757575")
+DEFAULT_CLASSES = (
+    "Organisch",
+    "Overige/Batterijen",
+    "Overige/Elektronica",
+    "Overige/Glas",
+    "Overige/Lightbulbs",
+    "Overige/Metaal",
+    "PMD",
+    "Papier",
+    "Restafval",
+)
+DEFAULT_COLORS = (
+    "#4CAF50",  # Organisch
+    "#FF7043",  # Overige/Batterijen
+    "#EF5350",  # Overige/Elektronica
+    "#26A69A",  # Overige/Glas
+    "#FFD54F",  # Overige/Lightbulbs
+    "#8D6E63",  # Overige/Metaal
+    "#FFC107",  # PMD
+    "#2196F3",  # Papier
+    "#757575",  # Restafval
+)
 
 # Kleurenpalet (Dark Theme)
 COLOR_BG = "#1E1E1E"
@@ -483,32 +503,29 @@ class InferenceGUI:
                     max_score = float(scores_matrix[det_idx, class_idx])
                     
                     # Maak een dummy probabilities array voor de UI
-                    probabilities = np.zeros(len(self.classes) + 2, dtype=np.float32)
+                    probabilities = np.zeros(len(self.classes), dtype=np.float32)
                     
-                    # Mapping: dit is vaak trial & error.
-                    # Aanname: class_idx 0 = eerste default class? Of background?
-                    # Meestal is 0 = background in ONNX, dus 1 = Organisch?
                     mapped_idx = class_idx 
                     
                     # Als de score erg laag is, is het misschien niks
                     if max_score < 0.4:
                         mapped_idx = 999 # "Geen object"
                     
-                    if mapped_idx < len(probabilities):
+                    if 0 <= mapped_idx < len(probabilities):
                          probabilities[mapped_idx] = max_score
                     
                     predicted_idx = mapped_idx
                 except Exception as e:
                     print(f"Error in detection parsing: {e}")
-                    probabilities = np.array([0.0] * 4)
+                    probabilities = np.zeros(len(self.classes), dtype=np.float32)
                     predicted_idx = 999
 
             else:
-                # STANDAARD CLASSIFICATIE LOGICA (model.onnx)
-                # Output[0]: [1, 4]
+                 # STANDAARD CLASSIFICATIE LOGICA (classification model)
+                 # Output[0]: meestal [1, num_classes]
                 raw_output = np.asarray(inference_outputs[0], dtype=np.float32)
                 if raw_output.ndim > 1:
-                     raw_output = raw_output.flatten() # [4]
+                     raw_output = raw_output.flatten() # [num_classes]
                 
                 # Check of het logits zijn of al probabilities
                 if np.max(np.abs(raw_output)) > 1.5:
@@ -570,30 +587,57 @@ class InferenceGUI:
         self.root.after(50, self._process_worker_messages)
 
     def _show_results(self, probabilities, predicted_idx, inference_time):
-        if predicted_idx < len(self.classes):
-            name = self.classes[predicted_idx]
-            color = self.colors[predicted_idx]
-            
+        led_cmd = None
+        if 0 <= predicted_idx < len(self.classes):
+            # Klassen 1 t/m 5 behandelen als 'Geen'.
+            if 1 <= predicted_idx <= 5:
+                name = "Geen"
+                color = COLOR_TEXT
+            else:
+                name = self.classes[predicted_idx]
+                color = self.colors[predicted_idx]
+
+            # Mapping naar beschikbare LED-bakken op ESP32.
+            # Organisch -> organisch, PMD -> pmd, Papier -> karton,
+            # alle overige stromen -> rest.
+            class_to_led_cmd = {
+                0: "organisch",  # Organisch
+                1: "off",        # Overige/Batterijen -> Geen
+                2: "off",        # Overige/Elektronica -> Geen
+                3: "off",        # Overige/Glas -> Geen
+                4: "off",        # Overige/Lightbulbs -> Geen
+                5: "off",        # Overige/Metaal -> Geen
+                6: "pmd",        # PMD
+                7: "karton",     # Papier
+                8: "rest",       # Restafval
+            }
+            led_cmd = class_to_led_cmd.get(predicted_idx, "rest")
+
             # LED-strip aansturen via lokale controller
-            if self.led:
-                # ("Organisch", "PMD", "Papier", "Restafval")
-                # 0->organisch, 1->pmd, 2->karton, 3->rest
-                cmds = ["organisch", "pmd", "karton", "rest"]
-                if 0 <= predicted_idx < len(cmds):
-                    cmd = cmds[predicted_idx]
-                    response = self.led.send_command(cmd)
-                    print(f"[LED] {response}")
-                    self.set_status(f"LED: {response}", COLOR_SUCCESS)
+            if self.led and led_cmd:
+                response = self.led.send_command(led_cmd)
+                print(f"[LED] {response}")
         else:
             name = f"Onbekend ({predicted_idx})"
             color = COLOR_TEXT
+            led_cmd = "rest"
 
-        prob = float(probabilities[predicted_idx]) * 100.0
+            if self.led:
+                response = self.led.send_command(led_cmd)
+                print(f"[LED] {response}")
+
+        if 0 <= predicted_idx < len(probabilities):
+            prob = float(probabilities[predicted_idx]) * 100.0
+        else:
+            prob = 0.0
         
         self.prediction_var.set(name.upper())
         self.prediction_label.config(fg=color) # Update kleur op basis van klasse
         self.confidence_var.set(f"{prob:.1f}% zekerheid")
-        self.set_status(f"Inferentie tijd: {inference_time:.1f}ms", "#888888")
+        if led_cmd:
+            self.set_status(f"Inferentie tijd: {inference_time:.1f}ms | LED: {led_cmd}", "#888888")
+        else:
+            self.set_status(f"Inferentie tijd: {inference_time:.1f}ms", "#888888")
 
     def reset_classification(self) -> None:
         """Reset de classificatie en stop eventuele actieve analyses."""
