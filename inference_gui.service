@@ -1,7 +1,7 @@
 [Unit]
 Description=SlimmeAfvalcontainer Inference GUI
-After=network-online.target graphical.target
-Wants=network-online.target
+After=network-online.target graphical.target systemd-user-sessions.service dev-media0.device dev-video0.device
+Wants=network-online.target dev-media0.device dev-video0.device
 
 [Service]
 Type=simple
@@ -9,7 +9,8 @@ User=kobe
 Environment="DISPLAY=:0"
 Environment="XAUTHORITY=/home/kobe/.Xauthority"
 WorkingDirectory=/home/kobe/SlimmeAfvalcontainer/Code PI
-ExecStart=/home/kobe/SlimmeAfvalcontainer/venv_ssp/bin/python /home/kobe/SlimmeAfvalcontainer/Code\ PI/inference_gui_v2.py
+ExecStartPre=/bin/sleep 12
+ExecStart=/home/kobe/SlimmeAfvalcontainer/venv_ssp/bin/python inference_gui.py
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal

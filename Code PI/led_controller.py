@@ -17,7 +17,12 @@ import threading
 from enum import Enum, auto
 
 import board
-import neopixel
+try:
+    import neopixel
+    _NEOPIXEL_IMPORT_ERROR: Exception | None = None
+except Exception as exc:
+    neopixel = None  # type: ignore[assignment]
+    _NEOPIXEL_IMPORT_ERROR = exc
 
 # ── Configuratie ─────────────────────────────────────────────────────────────
 # Pas deze aan op basis van het aantal leds per strip.
@@ -79,6 +84,13 @@ class LedController:
         self._strips: dict[str, neopixel.NeoPixel] = {}
         self._led_count_map: dict[str, int] = {}
         self._max_allowed_current_a = max(0.1, MAX_SUPPLY_CURRENT_A * CURRENT_HEADROOM)
+
+        if _NEOPIXEL_IMPORT_ERROR is not None:
+            print(
+                f"[LED] Waarschuwing: neopixel module niet bruikbaar: {_NEOPIXEL_IMPORT_ERROR}\n"
+                "  LED-aansturing wordt uitgeschakeld, GUI blijft actief."
+            )
+            return
 
         if led_count_map is None:
             led_count_map = DEFAULT_LED_COUNT_MAP.copy()

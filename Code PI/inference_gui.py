@@ -1,6 +1,7 @@
 import argparse
 import threading
 import time
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from queue import Empty, Queue
@@ -144,6 +145,10 @@ class InferenceGUI:
         self.running = True
         self.initialized = False
         self.worker_active = False
+        self.init_in_progress = False
+        self.init_retry_delay_ms = 10000
+        self.max_auto_init_retries = 6
+        self.auto_init_retry_count = 0
         self.result_queue: Queue[tuple[str, object]] = Queue()
         self.latest_frame: np.ndarray | None = None
         self.session: ort.InferenceSession | None = None
@@ -157,6 +162,13 @@ class InferenceGUI:
         self.update_preview()
         
         # Start initialisatie in achtergrond
+        self.start_initialization()
+
+    def start_initialization(self) -> None:
+        if not self.running or self.init_in_progress or self.initialized:
+            return
+
+        self.init_in_progress = True
         init_thread = threading.Thread(target=self._initialize_worker)
         init_thread.daemon = True
         init_thread.start()
@@ -329,14 +341,7 @@ class InferenceGUI:
                 raise last_error or RuntimeError("Geen geldig ONNX-model gevonden/geladen.")
 
             print("Initializing camera...")
-            camera = Picamera2()
-            # Gebruik maximale resolutie voor betere kwaliteit, resize voor preview
-            camera_config = camera.create_preview_configuration(
-                main={"size": (640, 480), "format": "RGB888"}
-            )
-            camera.configure(camera_config)
-            camera.start()
-            time.sleep(1)
+            camera = self._initialize_camera_with_retry()
 
             print("Initializing LED controller...")
             led = LedController()
@@ -351,7 +356,39 @@ class InferenceGUI:
 
             self.result_queue.put(("init_ok", (session, input_name, input_shape, output_names, camera, resolved_model, led)))
         except Exception as exc:
-            self.result_queue.put(("init_error", str(exc)))
+            self.result_queue.put(("init_error", f"{exc}\n{traceback.format_exc()}"))
+        finally:
+            self.result_queue.put(("init_finished", None))
+
+    def _initialize_camera_with_retry(self, attempts: int = 5, base_wait_s: float = 1.5) -> Picamera2:
+        last_error: Exception | None = None
+
+        for attempt in range(1, attempts + 1):
+            camera = None
+            try:
+                camera = Picamera2()
+                # Gebruik maximale resolutie voor betere kwaliteit, resize voor preview
+                camera_config = camera.create_preview_configuration(
+                    main={"size": (640, 480), "format": "RGB888"}
+                )
+                camera.configure(camera_config)
+                camera.start()
+                time.sleep(1)
+                print(f"Camera init geslaagd op poging {attempt}/{attempts}")
+                return camera
+            except Exception as exc:
+                last_error = exc
+                wait_s = base_wait_s * attempt
+                print(f"Camera init poging {attempt}/{attempts} mislukt: {exc}")
+                if camera is not None:
+                    try:
+                        camera.stop()
+                    except Exception:
+                        pass
+                if attempt < attempts:
+                    time.sleep(wait_s)
+
+        raise RuntimeError(f"Camera initialisatie mislukt na {attempts} pogingen: {last_error}")
 
     def update_preview(self) -> None:
         if not self.running:
@@ -567,6 +604,7 @@ class InferenceGUI:
                 self.camera = camera
                 self.led = led
                 self.initialized = True
+                self.auto_init_retry_count = 0
 
                 status_text = f"Klaar. Model: {Path(resolved_model).name}"
                 if self.led and self.led.enabled:
@@ -579,12 +617,30 @@ class InferenceGUI:
                 self.prediction_var.set("Klaar")
             elif message_type == "init_error":
                 self.initialized = False
-                self.set_status(f"Init Error: {payload}", COLOR_ERROR)
+                short_error = str(payload).strip().splitlines()[0]
+                self.set_status(f"Init Error: {short_error}", COLOR_ERROR)
+                self.auto_init_retry_count += 1
+                # Probeer beperkt automatisch opnieuw; daarna manueel om een oneindige loop te vermijden.
+                if self.auto_init_retry_count <= self.max_auto_init_retries:
+                    self.root.after(self.init_retry_delay_ms, self._retry_initialization_if_needed)
+                else:
+                    self.set_status(
+                        "Init blijft falen. Druk op Reset om opnieuw te proberen.",
+                        COLOR_ERROR,
+                    )
+            elif message_type == "init_finished":
+                self.init_in_progress = False
             elif message_type == "done":
                 self.worker_active = False
                 self.update_ui_state(self.initialized)
 
         self.root.after(50, self._process_worker_messages)
+
+    def _retry_initialization_if_needed(self) -> None:
+        if not self.running or self.initialized or self.init_in_progress:
+            return
+        self.set_status("Init opnieuw proberen...", COLOR_ACCENT)
+        self.start_initialization()
 
     def _show_results(self, probabilities, predicted_idx, inference_time):
         led_cmd = None
@@ -648,6 +704,13 @@ class InferenceGUI:
         if self.led:
             self.led.send_command("reset")
         self.set_status("Gereset", COLOR_SUCCESS)
+
+        # Als init nog niet rond is, laat Reset een handmatige herstart van init doen.
+        if not self.initialized and not self.init_in_progress:
+            self.auto_init_retry_count = 0
+            self.set_status("Init opnieuw starten...", COLOR_ACCENT)
+            self.start_initialization()
+            return
         
         # Heractiveer de UI
         if self.initialized:
