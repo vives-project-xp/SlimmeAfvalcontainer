@@ -35,15 +35,15 @@ except ImportError as exc:
 
 
 DEFAULT_CLASSES = (
-    "Organisch",
-    "Overige/Batterijen",
-    "Overige/Elektronica",
-    "Overige/Glas",
-    "Overige/Lightbulbs",
-    "Overige/Metaal",
-    "PMD",
-    "Papier",
-    "Restafval",
+    "Organisch",            # Index 0
+    "Overige/Batterijen",   # Index 1
+    "Overige/Elektronica",  # Index 2
+    "Overige/Glas",         # Index 3
+    "Overige/Lightbulbs",   # Index 4
+    "Overige/Metaal",       # Index 5
+    "PMD",                  # Index 6
+    "Papier",               # Index 7
+    "Restafval",            # Index 8
 )
 DEFAULT_COLORS = (
     "#4CAF50",  # Organisch
@@ -588,56 +588,51 @@ class InferenceGUI:
 
     def _show_results(self, probabilities, predicted_idx, inference_time):
         led_cmd = None
-        if 0 <= predicted_idx < len(self.classes):
-            # Klassen 1 t/m 5 behandelen als 'Geen'.
-            if 1 <= predicted_idx <= 5:
-                name = "Geen"
-                color = COLOR_TEXT
-            else:
-                name = self.classes[predicted_idx]
-                color = self.colors[predicted_idx]
+        prob = float(probabilities[predicted_idx])
 
-            # Mapping naar beschikbare LED-bakken op ESP32.
-            # Organisch -> organisch, PMD -> pmd, Papier -> karton,
-            # alle overige stromen -> rest.
-            class_to_led_cmd = {
-                0: "organisch",  # Organisch
-                1: "off",        # Overige/Batterijen -> Geen
-                2: "off",        # Overige/Elektronica -> Geen
-                3: "off",        # Overige/Glas -> Geen
-                4: "off",        # Overige/Lightbulbs -> Geen
-                5: "off",        # Overige/Metaal -> Geen
-                6: "pmd",        # PMD
-                7: "karton",     # Papier
-                8: "rest",       # Restafval
-            }
-            led_cmd = class_to_led_cmd.get(predicted_idx, "rest")
-
-            # LED-strip aansturen via lokale controller
-            if self.led and led_cmd:
-                response = self.led.send_command(led_cmd)
-                print(f"[LED] {response}")
+        # --- BIAS CORRECTIE VOOR BATTERIJEN ---
+        # Als het model 'Batterijen' zegt (Index 1) maar de zekerheid is lager dan 85%,
+        # dan dwingen we het resultaat naar 'Restafval' (Index 8).
+        if predicted_idx == 1 and prob < 0.85:
+            predicted_idx = 8
+            name = "Restafval"
+            color = self.colors[8]
+        elif 0 <= predicted_idx < len(self.classes):
+            name = self.classes[predicted_idx]
+            color = self.colors[predicted_idx]
         else:
-            name = f"Onbekend ({predicted_idx})"
+            name = "Onbekend"
             color = COLOR_TEXT
-            led_cmd = "rest"
+            predicted_idx = 8  # Fallback naar restafval
 
-            if self.led:
-                response = self.led.send_command(led_cmd)
-                print(f"[LED] {response}")
+        # --- LED MAPPING (9 klassen -> 4 bakken) ---
+        class_to_led_cmd = {
+            0: "organisch",  # Organisch
+            1: "off",        # Batterijen (off want geen eigen bak)
+            2: "off",        # Elektronica
+            3: "off",        # Glas
+            4: "off",        # Lampen
+            5: "off",        # Metaal
+            6: "pmd",        # PMD
+            7: "karton",     # Papier
+            8: "rest",       # Restafval
+        }
+        led_cmd = class_to_led_cmd.get(predicted_idx, "rest")
 
-        if 0 <= predicted_idx < len(probabilities):
-            prob = float(probabilities[predicted_idx]) * 100.0
-        else:
-            prob = 0.0
-        
+        # LED-strip aansturen via lokale controller
+        if self.led and led_cmd:
+            response = self.led.send_command(led_cmd)
+            print(f"[LED] Output: {name} ({prob*100:.1f}%) -> Command: {led_cmd}")
+
+        # Update de User Interface (UI)
         self.prediction_var.set(name.upper())
-        self.prediction_label.config(fg=color) # Update kleur op basis van klasse
-        self.confidence_var.set(f"{prob:.1f}% zekerheid")
+        self.prediction_label.config(fg=color)
+        self.confidence_var.set(f"{prob*100:.1f}% zekerheid")
+
+        status_text = f"Inferentie: {inference_time:.1f}ms"
         if led_cmd:
-            self.set_status(f"Inferentie tijd: {inference_time:.1f}ms | LED: {led_cmd}", "#888888")
-        else:
-            self.set_status(f"Inferentie tijd: {inference_time:.1f}ms", "#888888")
+            status_text += f" | LED: {led_cmd}"
+        self.set_status(status_text, "#888888")
 
     def reset_classification(self) -> None:
         """Reset de classificatie en stop eventuele actieve analyses."""

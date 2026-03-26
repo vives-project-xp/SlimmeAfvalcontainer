@@ -1,15 +1,16 @@
-# Bedrading WS2812B (4 strips direct op Raspberry Pi)
+# Bedrading en softwareconfig WS2812B (4 strips direct op Raspberry Pi)
 
-Deze setup gebruikt geen ESP32 en geen UART meer. De 4 WS2812B-strips zitten direct op de Raspberry Pi.
+Deze setup gebruikt geen ESP32 en geen UART meer.
+De GUI stuurt de leds direct aan via [Code PI/led_controller.py](Code%20PI/led_controller.py).
 
 ## GPIO pinnen voor 4 aparte strips
 
-- REST -> GPIO18 (pin 12)
-- KARTON -> GPIO13 (pin 33)
-- ORGANISCH -> GPIO12 (pin 32)
-- PMD -> GPIO19 (pin 35)
+- REST -> GPIO18 (fysieke pin 12)
+- KARTON -> GPIO13 (fysieke pin 33)
+- ORGANISCH -> GPIO12 (fysieke pin 32)
+- PMD -> GPIO19 (fysieke pin 35)
 
-Dit zijn stabiele keuzes op de Pi voor LED-data met gangbare WS281x-drivers.
+Deze mapping komt exact overeen met de softwareconfig.
 
 ## Aansluiten per strip
 
@@ -22,21 +23,20 @@ Per strip heb je 3 verbindingen:
 ## Verplichte extra componenten voor WS2812B
 
 - Plaats een serieweerstand van 330-470 ohm in de datalijn van elke strip.
-- Plaats een elco van 1000 uF (minimaal 6.3V) tussen 5V en GND bij het begin van de strips.
-- Gebruik een externe 5V voeding voor de strips (niet alleen via Pi 5V pin voor grote aantallen leds).
+- Plaats een elco van 1000 uF (minimaal 6.3V) tussen 5V en GND bij de start van de strips.
+- Gebruik een externe 5V voeding voor de strips (niet alleen via Pi 5V pin bij veel leds).
 - Verbind alle gronden met elkaar: Pi GND + voeding GND + alle strip GND.
 
 ## Spanningsniveau data (belangrijk)
 
-De Raspberry Pi geeft 3.3V datalogica. WS2812B op 5V kan dit soms accepteren, maar niet altijd stabiel.
+De Raspberry Pi gebruikt 3.3V datalogica.
+WS2812B op 5V werkt soms direct, maar voor stabiele werking is een level shifter sterk aanbevolen:
 
-Voor betrouwbare werking:
-
-- Gebruik een 74AHCT125 of 74HCT14 level shifter (3.3V -> 5V) voor elke datalijn.
+- 74AHCT125 of 74HCT14 (3.3V -> 5V) op elke datalijn.
 
 ## Voeding snelcheck
 
-Rekenregel: maximaal ongeveer 60 mA per led bij vol wit op 100% helderheid.
+Rekenregel: maximaal ongeveer 60 mA per led bij vol wit op 100%.
 
 Formule:
 
@@ -46,16 +46,63 @@ Voorbeeld bij 191 leds totaal:
 
 - 191 * 0.06 = 11.46 A (theoretisch maximum)
 
-In praktijk vaak lager door brightness-limiet, maar kies voeding met marge.
+In de praktijk vaak lager door brightness-limiet, maar kies voeding met marge.
 
-## Let op software
+## Software vereisten (Pi)
 
-Niet elke Python library op Raspberry Pi ondersteunt 4 volledig onafhankelijke WS2812B-strips tegelijk.
-Als je library limiet geeft op aantal kanalen, dan heb je deze opties:
+Benodigde Python packages in je venv:
 
-- wisselen naar een driver/library die meerdere kanalen ondersteunt
-- een extern led-controller board gebruiken
-- of 1 datalijn splitten naar meerdere strips (dan tonen alle strips hetzelfde patroon)
+- adafruit-circuitpython-neopixel
+- rpi_ws281x
+
+En op OS-niveau:
+
+- Python met GPIO toegang
+- start de app bij voorkeur met sudo voor stabiele ws281x toegang
+
+## Runtime configuratie
+
+De led-controller ondersteunt deze omgevingsvariabelen:
+
+- LED_COUNT_REST (standaard: 51)
+- LED_COUNT_KARTON (standaard: 38)
+- LED_COUNT_ORGANISCH (standaard: 51)
+- LED_COUNT_PMD (standaard: 51)
+- LED_BRIGHTNESS (standaard: 0.25)
+- LED_MAX_CURRENT_A (standaard: 5.0)
+- LED_CURRENT_HEADROOM (standaard: 0.85)
+
+Voorbeeld:
+
+- LED_COUNT_REST=51 LED_COUNT_KARTON=38 LED_COUNT_ORGANISCH=51 LED_COUNT_PMD=51 LED_BRIGHTNESS=0.20 LED_MAX_CURRENT_A=5.0 LED_CURRENT_HEADROOM=0.85 sudo -E /pad/naar/python [Code PI/inference_gui.py](Code%20PI/inference_gui.py)
+
+Stroomlimiter in software:
+
+- De controller schat stroom op basis van RGB-waarde en aantal leds van de actieve strip.
+- Als de geschatte stroom boven de limiet komt, schaalt de software de RGB-waarde automatisch omlaag.
+- Effectieve limiet = LED_MAX_CURRENT_A * LED_CURRENT_HEADROOM.
+
+Huidige fysieke setup:
+
+- REST: 51 leds
+- KARTON: 38 leds
+- ORGANISCH: 51 leds
+- PMD: 51 leds
+
+## Commando mapping vanuit GUI
+
+De GUI stuurt commando's naar de controller:
+
+- organisch -> ORGANISCH strip aan
+- pmd -> PMD strip aan
+- karton -> KARTON strip aan
+- rest -> REST strip aan
+- papier -> alias van karton
+- bio -> alias van organisch
+- off -> alle strips uit
+- reset -> alle strips uit en keuze reset
+
+Bij een nieuw commando gaat eerst alles uit, daarna alleen de gekozen strip aan.
 
 ## HC-SR04 ultrasonische sensors (4x)
 
