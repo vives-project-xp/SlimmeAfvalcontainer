@@ -13,6 +13,8 @@ zodat hij direct gebruikt kan worden door `inference_gui.py`.
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
 import threading
 from enum import Enum, auto
 
@@ -52,8 +54,20 @@ DEFAULT_LED_COUNT_MAP = {
 COLOR_MAP = {
         "rest": (255, 70, 70),
         "karton": (70, 140, 255),
-        "organisch": (60, 220, 90),
+        "organisch": (0, 255, 0),
         "pmd": (255, 190, 40),
+}
+
+RESULT_GREEN = (0, 255, 0)
+RESULT_RED = (255, 0, 0)
+
+SPECIAL_COLOR_MAP = {
+    "overige": (160, 160, 160),
+    "overige_batterijen": (255, 120, 40),
+    "overige_elektronica": (255, 60, 60),
+    "overige_glas": (40, 190, 170),
+    "overige_lightbulbs": (255, 230, 90),
+    "overige_metaal": (150, 120, 95),
 }
 
 OFF = (0, 0, 0)
@@ -73,17 +87,26 @@ class LedController:
     Methode:
         send_command(cmd: str) -> str
             Accepteert: "pmd", "rest", "karton", "papier",
-                        "organisch", "bio", "hit", "off", "reset".
+                        "organisch", "bio", "all", "hit", "off", "reset",
+                        plus "overige*" varianten.
             Stuurt leds aan en geeft een status-string terug.
     """
 
     def __init__(self, led_count_map: dict[str, int] | None = None, brightness: float = DEFAULT_BRIGHTNESS):
+        self._proxy_mode = os.getenv("LED_PROCESS_ISOLATION", "1") == "1"
         self.enabled = False
         self.current_choice = Choice.NONE
         self._lock = threading.Lock()
         self._strips: dict[str, neopixel.NeoPixel] = {}
         self._led_count_map: dict[str, int] = {}
         self._max_allowed_current_a = max(0.1, MAX_SUPPLY_CURRENT_A * CURRENT_HEADROOM)
+
+        # Isolatiemodus: LED-IO loopt in een apart proces zodat een native
+        # neopixel crash de GUI niet kan neerhalen.
+        if self._proxy_mode:
+            self.enabled = True
+            print("[LED] Process-isolation actief (subprocess mode)")
+            return
 
         if _NEOPIXEL_IMPORT_ERROR is not None:
             print(
@@ -164,6 +187,25 @@ class LedController:
             strip.fill(color)
             strip.show()
 
+    def _show_all_bins(self) -> None:
+        for name, strip in self._strips.items():
+            color = self._limit_color_for_strip(name, COLOR_MAP[name])
+            strip.fill(color)
+            strip.show()
+
+    def _show_all_color(self, rgb: tuple[int, int, int]) -> None:
+        for name, strip in self._strips.items():
+            color = self._limit_color_for_strip(name, rgb)
+            strip.fill(color)
+            strip.show()
+
+    def _show_selection(self, selected_bin: str) -> None:
+        for name, strip in self._strips.items():
+            rgb = RESULT_GREEN if name == selected_bin else RESULT_RED
+            color = self._limit_color_for_strip(name, rgb)
+            strip.fill(color)
+            strip.show()
+
     def send_command(self, cmd: str) -> str:
         """
         Verwerk een commando-string en stuur de strips aan.
@@ -171,6 +213,9 @@ class LedController:
         Geeft een status-string terug.
         """
         cmd = cmd.strip().lower()
+
+        if self._proxy_mode:
+            return self._send_command_via_subprocess(cmd)
 
         # Alias voor compatibiliteit met oudere flow.
         if cmd == "papier":
@@ -192,6 +237,38 @@ class LedController:
                         "karton": Choice.KARTON,
                         "organisch": Choice.ORGANISCH,
                     }[cmd]
+                    return f"OK: {cmd.upper()}"
+
+                if cmd == "all":
+                    self._show_all_bins()
+                    self.current_choice = Choice.NONE
+                    return "OK: ALL"
+
+                if cmd == "idle":
+                    self._show_all_bins()
+                    self.current_choice = Choice.NONE
+                    return "OK: IDLE"
+
+                if cmd == "reject":
+                    self._show_all_color(RESULT_RED)
+                    self.current_choice = Choice.NONE
+                    return "OK: REJECT"
+
+                if cmd.startswith("select_"):
+                    selected = cmd.removeprefix("select_")
+                    if selected in PIN_MAP:
+                        self._show_selection(selected)
+                        self.current_choice = {
+                            "pmd": Choice.PMD,
+                            "rest": Choice.REST,
+                            "karton": Choice.KARTON,
+                            "organisch": Choice.ORGANISCH,
+                        }[selected]
+                        return f"OK: SELECT_{selected.upper()}"
+
+                if cmd in SPECIAL_COLOR_MAP:
+                    self._show_all_color(SPECIAL_COLOR_MAP[cmd])
+                    self.current_choice = Choice.NONE
                     return f"OK: {cmd.upper()}"
 
                 if cmd == "hit":
@@ -218,8 +295,44 @@ class LedController:
                 print(f"[LED] Fout bij commando '{cmd}': {exc}")
                 return f"ERROR: {cmd}"
 
+    def _send_command_via_subprocess(self, cmd: str) -> str:
+        child_code = (
+            "import os,sys; "
+            "os.environ['LED_PROCESS_ISOLATION']='0'; "
+            "sys.path.insert(0, '/home/kobe/SlimmeAfvalcontainer/Code PI'); "
+            "from led_controller import LedController; "
+            "c=LedController(); "
+            "resp=c.send_command(sys.argv[1]); "
+            "print(resp)"
+        )
+        try:
+            result = subprocess.run(
+                [sys.executable, "-c", child_code, cmd],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+            if result.returncode != 0:
+                err = (result.stderr or "").strip()
+                print(f"[LED] Subprocess fout ({result.returncode}): {err}")
+                return f"ERROR: {cmd}"
+
+            lines = [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+            if lines:
+                return lines[-1]
+            return f"OK: {cmd.upper()}"
+        except Exception as exc:
+            print(f"[LED] Subprocess exception: {exc}")
+            return f"ERROR: {cmd}"
+
     def close(self) -> None:
         """Zet alle leds uit en geef resources vrij."""
+        if self._proxy_mode:
+            self.send_command("off")
+            self.enabled = False
+            return
+
         if not self.enabled:
             return
 
@@ -245,4 +358,3 @@ if __name__ == "__main__":
         print(f"Verzonden: {cmd} -> {ctrl.send_command(cmd)}")
         time.sleep(2)
     ctrl.close()
-

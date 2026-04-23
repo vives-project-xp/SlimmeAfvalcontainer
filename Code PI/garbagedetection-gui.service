@@ -1,0 +1,19 @@
+[Unit]
+Description=Slimme Afvalcontainer GUI
+After=graphical.target
+Wants=graphical.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/home/kobe/SlimmeAfvalcontainer
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/kobe/.Xauthority
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/kobe/SlimmeAfvalcontainer/start_garbage_gui.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical.target
