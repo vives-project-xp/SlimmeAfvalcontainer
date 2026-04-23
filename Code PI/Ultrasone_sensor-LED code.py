@@ -16,8 +16,9 @@ DEBOUNCE_TIME = 1.5
 
 SENSORS = [
     {"id": 1, "name": "Restafval", "trig": SENSOR_1_TRIG, "echo": SENSOR_1_ECHO, "threshold": 10},
-    # Sensor 2/3/4 tijdelijk uitgeschakeld.
-    # Voeg ze later weer toe zodra deze GPIO's beschikbaar zijn.
+    {"id": 2, "name": "PMD",       "trig": SENSOR_2_TRIG, "echo": SENSOR_2_ECHO, "threshold": 10},
+    {"id": 3, "name": "Papier",    "trig": SENSOR_3_TRIG, "echo": SENSOR_3_ECHO, "threshold": 10},
+    {"id": 4, "name": "Glas",      "trig": SENSOR_4_TRIG, "echo": SENSOR_4_ECHO, "threshold": 10},
 ]
 
 GPIO.setmode(GPIO.BCM)
