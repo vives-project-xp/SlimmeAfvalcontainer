@@ -54,7 +54,7 @@ void setup() {
   // Serial  = UART0 = USB (voor debug in IDE Serial Monitor)
   // Serial1 = UART1 = GPIO4(RX van Pi) / GPIO5(TX naar Pi)
   Serial.begin(115200);
-  Serial1.begin(115200, SERIAL_8N1, 4, 5);
+  Serial1.begin(115200, SERIAL_8N1, 20, 21);
 
   stripRest.begin();
   stripKarton.begin();
@@ -76,29 +76,27 @@ void loop() {
 }
 // Leest de serial monitor af om de keuze te bepalen
 void handleSerial() {
-  if (!Serial1.available()) return;
+  String cmd = "";
+  
+  if (Serial.available())       cmd = Serial.readStringUntil('\n');
+  else if (Serial1.available()) cmd = Serial1.readStringUntil('\n');
+  else return;
 
-  String cmd = Serial1.readStringUntil('\n');
   cmd.trim();
   cmd.toLowerCase();
   Serial.print("CMD ontvangen: "); Serial.println(cmd);
 
-  if      (cmd == "pmd")                        { currentChoice = PMD;      startStatic(); Serial1.println("OK: PMD");      Serial.println("OK: PMD"); }
-  else if (cmd == "rest")                       { currentChoice = REST;     startStatic(); Serial1.println("OK: REST");     Serial.println("OK: REST"); }
-  else if (cmd == "karton" || cmd == "papier")  { currentChoice = KARTON;   startStatic(); Serial1.println("OK: KARTON");  Serial.println("OK: KARTON"); }
-  else if (cmd == "organisch" || cmd == "bio")  { currentChoice = ORGANISCH;startStatic(); Serial1.println("OK: ORGANISCH"); Serial.println("OK: ORGANISCH"); }
+  if      (cmd == "pmd")                        { currentChoice = PMD;       startStatic(); Serial.println("OK: PMD"); }
+  else if (cmd == "rest")                       { currentChoice = REST;      startStatic(); Serial.println("OK: REST"); }
+  else if (cmd == "karton" || cmd == "papier")  { currentChoice = KARTON;    startStatic(); Serial.println("OK: KARTON"); }
+  else if (cmd == "organisch" || cmd == "bio")  { currentChoice = ORGANISCH; startStatic(); Serial.println("OK: ORGANISCH"); }
   else if (cmd == "hit") {
-    if (currentChoice != NONE) {
-       startBlink();
-       Serial1.println("OK: HIT");
-       Serial.println("OK: HIT");
-    }
+    if (currentChoice != NONE) { startBlink(); Serial.println("OK: HIT"); }
   }
   else if (cmd == "off") {
     currentChoice = NONE;
     mode = MODE_OFF;
     allOff();
-    Serial1.println("OK: OFF");
     Serial.println("OK: OFF");
   }
 }
