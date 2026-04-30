@@ -33,3 +33,21 @@ dist/
 # OS/editor noise
 .DS_Store
 Thumbs.db
+
+# Models
+/home/kobe/SlimmeAfvalcontainer/pi_deploy_target96/model_best_ema_target96.pth
+
+# Captures
+Code PI/captures/
+pi_deploy_target96/captures/
+
+# Local model artifacts (do not push)
+Code PI/AI/*.onnx
+Code PI/AI/*.onnx.data
+Code PI/AI/*.bak_external
+Code PI/*.pth
+Code PI/*.onnx
+Code PI/*.hef
+pi_deploy_target96/*.pth
+pi_deploy_target96/*.onnx
+pi_deploy_target96/*.hef

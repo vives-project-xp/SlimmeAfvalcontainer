@@ -38,7 +38,7 @@ except (ModuleNotFoundError, ImportError):
     _PICAM_AVAILABLE = False
 
 try:
-    from PIL import Image, ImageTk, ImageDraw, ImageFont
+    from PIL import Image, ImageTk, ImageDraw, ImageFont, ImageOps
 except ImportError as exc:
     raise ImportError(
         "PIL.ImageTk ontbreekt.\n  sudo apt install python3-pil.imagetk python3-tk"
@@ -176,8 +176,23 @@ class RFDETREngine:
         print(f"RF-DETR laden: {model_path}  (dit kan even duren op Pi CPU)")
         self.threshold = threshold
         self.model     = RFDETRBase(pretrain_weights=str(model_path), device="cpu")
-        self.class_names: dict[int, str] = getattr(self.model, "class_names", {})
+        raw_names = getattr(self.model, "class_names", {})
+        self.class_names = self._normalize_class_names(raw_names)
         print(f"RF-DETR geladen. Klassen: {self.class_names}")
+
+    @staticmethod
+    def _normalize_class_names(raw_names) -> dict[int, str]:
+        if isinstance(raw_names, dict):
+            out: dict[int, str] = {}
+            for k, v in raw_names.items():
+                try:
+                    out[int(k)] = str(v)
+                except Exception:
+                    continue
+            return out
+        if isinstance(raw_names, (list, tuple)):
+            return {i: str(v) for i, v in enumerate(raw_names)}
+        return {}
 
     def detect(self, image: "Image.Image") -> tuple[str | None, float, tuple | None]:
         """
@@ -367,7 +382,10 @@ class InferenceGUI:
 
         self.result_queue: Queue[tuple[str, object]] = Queue()
         self.latest_frame: np.ndarray | None = None
-        self._annotated_photo = None   # holds last annotated frame reference
+        self._last_bboxes: list[tuple[str, float, tuple | None]] = []
+        self.auto_detect_enabled = True
+        self.auto_detect_interval_s = 1.0
+        self._next_auto_detect_at = 0.0
 
         # Engine state
         self.pipeline_mode = "single"
@@ -404,6 +422,7 @@ class InferenceGUI:
         self.set_status("Systeem opstarten...", C_ACCENT)
         self.update_preview()
         self.start_initialization()
+        self.root.after(250, self._auto_detect_tick)
 
     # ── Initialization ────────────────────────────────────────────────────
 
@@ -581,11 +600,10 @@ class InferenceGUI:
         img = Image.fromarray(image)
         if self.config.rotate:
             img = img.rotate(self.config.rotate, expand=True)
+        if self._last_bboxes:
+            img = self._draw_bboxes(img, self._last_bboxes)
 
-        pw = self.preview_label.winfo_width()
-        ph = self.preview_label.winfo_height()
-        target = (pw, ph) if pw > 1 and ph > 1 else (640, 480)
-        img    = img.resize(target, Image.Resampling.LANCZOS)
+        img = self._fit_to_preview(img)
 
         photo = ImageTk.PhotoImage(img)
         self.preview_label.configure(image=photo, text="")
@@ -630,7 +648,9 @@ class InferenceGUI:
 
         # ── Camera area ─────────────────────────────────────────────────
         cam_outer = tk.Frame(self.root, bg=C_BG)
-        cam_outer.pack(fill=tk.BOTH, expand=True, padx=16, pady=4)
+        cam_outer.pack(fill=tk.X, expand=False, padx=16, pady=4)
+        cam_outer.configure(height=max(260, int(self.config.window_height * 0.52)))
+        cam_outer.pack_propagate(False)
 
         cam_border = tk.Frame(cam_outer, bg=C_BORDER)
         cam_border.pack(fill=tk.BOTH, expand=True)
@@ -726,6 +746,20 @@ class InferenceGUI:
         self.confidence_var.set("")
         threading.Thread(target=self._classify_worker, daemon=True).start()
 
+    def _auto_detect_tick(self) -> None:
+        if not self.running:
+            return
+        now = time.time()
+        if (
+            self.auto_detect_enabled
+            and self.initialized
+            and not self.worker_active
+            and now >= self._next_auto_detect_at
+        ):
+            self._next_auto_detect_at = now + self.auto_detect_interval_s
+            self.classify_threaded()
+        self.root.after(200, self._auto_detect_tick)
+
     def _classify_worker(self) -> None:
         try:
             if self.latest_frame is not None:
@@ -736,6 +770,7 @@ class InferenceGUI:
                 raise RuntimeError("Geen cameraframe beschikbaar")
 
             pil_img = Image.fromarray(image_np)
+            self._save_capture_photo(pil_img)
             start   = time.time()
 
             if self.pipeline_mode == "rfdetr":
@@ -743,7 +778,7 @@ class InferenceGUI:
             elif self.pipeline_mode == "hailo":
                 result = self._run_hailo(image_np)
             elif self.pipeline_mode == "two_stage":
-                result = self._run_two_stage(image_np)
+                result = self._run_detect_then_two_stage(pil_img, image_np)
             else:
                 result = self._run_single_stage(image_np)
 
@@ -754,6 +789,18 @@ class InferenceGUI:
             self.result_queue.put(("error", str(exc)))
         finally:
             self.result_queue.put(("done", None))
+
+    def _save_capture_photo(self, pil_img: "Image.Image") -> None:
+        try:
+            out_dir = Path(__file__).resolve().parent / "captures"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            ts = time.strftime("%Y%m%d_%H%M%S")
+            ms = int((time.time() % 1) * 1000)
+            out_path = out_dir / f"capture_{ts}_{ms:03d}.jpg"
+            pil_img.save(out_path, format="JPEG", quality=90)
+        except Exception:
+            # Foto-opslag mag inferentie nooit blokkeren.
+            pass
 
     # result format: (bin_key, label, confidence, bboxes_norm_list)
     def _run_rfdetr(self, pil_img: "Image.Image") -> tuple:
@@ -821,6 +868,25 @@ class InferenceGUI:
         bin_key = label_to_bin(final_lbl)
         return bin_key, final_lbl, final_conf, []
 
+    def _run_detect_then_two_stage(self, pil_img: "Image.Image", image_np: np.ndarray) -> tuple:
+        """
+        Gewenste flow:
+        1) objectdetectie (RF-DETR) als gate
+        2) classificatie met stage1 + stage2
+        """
+        if self.rfdetr is None:
+            # Fallback als RF-DETR niet beschikbaar is.
+            return self._run_two_stage(image_np)
+
+        all_det = self.rfdetr.all_detections(pil_img)
+        if not all_det:
+            return "rest", "Niets gevonden", 0.0, []
+
+        all_det.sort(key=lambda x: x[1], reverse=True)
+        bboxes = [(name, conf, bbox) for name, conf, bbox in all_det if bbox is not None]
+        bin_key, final_lbl, final_conf, _ = self._run_two_stage(image_np)
+        return bin_key, final_lbl, final_conf, bboxes
+
     # ── Preprocessing ─────────────────────────────────────────────────────
 
     @staticmethod
@@ -880,6 +946,9 @@ class InferenceGUI:
 
             elif mtype == "init_ok":
                 d = payload
+                if not isinstance(d, dict):
+                    self.set_status(f"Init payload ongeldig type: {type(d).__name__}", C_ERROR)
+                    continue
                 self.pipeline_mode = str(d.get("pipeline_mode", "single"))
                 self.classes       = list(d.get("classes", DEFAULT_CLASSES))
                 self.hailo         = d.get("hailo")
@@ -955,16 +1024,7 @@ class InferenceGUI:
         pil_img: "Image.Image",
     ) -> None:
         # Draw bounding boxes if we have them (RF-DETR)
-        if bboxes:
-            annotated = self._draw_bboxes(pil_img, bboxes)
-            pw = self.preview_label.winfo_width()
-            ph = self.preview_label.winfo_height()
-            if pw > 1 and ph > 1:
-                annotated = annotated.resize((pw, ph), Image.Resampling.LANCZOS)
-            photo = ImageTk.PhotoImage(annotated)
-            self.preview_label.configure(image=photo, text="")
-            self.preview_label.image = photo
-            self._annotated_photo = photo   # keep reference
+        self._last_bboxes = list(bboxes or [])
 
         # LED
         led_cmd = bin_to_led_cmd(bin_key)
@@ -1011,6 +1071,19 @@ class InferenceGUI:
             draw.text((x1+4, y1-20), txt, fill="white", font=fnt)
         return out
 
+    def _fit_to_preview(self, img: "Image.Image") -> "Image.Image":
+        pw = self.preview_label.winfo_width()
+        ph = self.preview_label.winfo_height()
+        if pw <= 1 or ph <= 1:
+            return img.resize((640, 480), Image.Resampling.LANCZOS)
+        return ImageOps.pad(
+            img,
+            (pw, ph),
+            method=Image.Resampling.LANCZOS,
+            color=(17, 17, 17),
+            centering=(0.5, 0.5),
+        )
+
     def _highlight_bin(self, active_key: str | None) -> None:
         for b in BIN_DEFS:
             k  = b["key"]
@@ -1030,7 +1103,7 @@ class InferenceGUI:
         self.confidence_var.set("")
         self.prediction_overlay.place_forget()
         self.confidence_overlay.place_forget()
-        self._annotated_photo = None
+        self._last_bboxes = []
         self._highlight_bin(None)
         if self.led:
             self.led.send_command("idle")
@@ -1080,7 +1153,11 @@ class InferenceGUI:
             return {}
         try:
             with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                if isinstance(data, dict):
+                    return data
+                print(f"Metadata fout ({path}): verwacht dict, kreeg {type(data).__name__}")
+                return {}
         except Exception as exc:
             print(f"Metadata fout ({path}): {exc}")
             return {}
