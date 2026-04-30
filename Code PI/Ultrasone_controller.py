@@ -28,10 +28,11 @@ from rpi_ws281x import PixelStrip, Color, WS2811_STRIP_GRB
 
 
 # ── Ultrasoon configuratie ────────────────────────────────────────────────────
-SENSOR_1_TRIG = 17;  SENSOR_1_ECHO = 27
+SENSOR_1_TRIG = 25;  SENSOR_1_ECHO = 26 
 SENSOR_2_TRIG = 22;   SENSOR_2_ECHO = 4
 SENSOR_3_TRIG = 23;  SENSOR_3_ECHO = 24
-SENSOR_4_TRIG = 5;   SENSOR_4_ECHO = 6
+SENSOR_4_TRIG = 17;   SENSOR_4_ECHO = 27
+
 
 CONTAINER_HEIGHT_CM = 65.0
 DEBOUNCE_TIME       = 1.5
@@ -46,10 +47,10 @@ SENSORS = [
 
 # ── LED-strip configuratie ────────────────────────────────────────────────────
 STRIP_CONFIGS = [
-    {"name": "Restafval", "pin": 18, "count": 51, "channel": 0},
-    {"name": "PMD",       "pin": 13, "count": 51, "channel": 1},
-    {"name": "Papier",    "pin": 12, "count": 38, "channel": 0},
-    {"name": "Glas",      "pin": 19, "count": 51, "channel": 1},
+    {"name": "Restafval", "pin": 18, "count": 51, "channel": 0, "dma": 10},
+    {"name": "PMD",       "pin": 13, "count": 51, "channel": 1, "dma": 11},
+    {"name": "Papier",    "pin": 12, "count": 38, "channel": 0, "dma": 12},
+    {"name": "Glas",      "pin": 19, "count": 51, "channel": 1, "dma": 13},
 ]
 
 BASE_COLORS = [
@@ -82,7 +83,7 @@ class StripController:
                 strip = PixelStrip(
                     cfg["count"], cfg["pin"],
                     freq_hz=800_000,
-                    dma=10,
+                    dma=cfg["dma"],
                     invert=False,
                     brightness=BRIGHTNESS,
                     channel=cfg["channel"],
@@ -209,7 +210,7 @@ def calc_fill_pct(distance: float | None) -> int:
 
 def check_disposed(sensor: dict, prev: float | None, curr: float | None):
     if curr is None or prev is None:
-        return False, prev or curr
+        return False, curr if curr is not None else prev
     if prev - curr >= sensor["threshold"]:
         time.sleep(0.8)
         confirmed = measure_average(sensor, samples=5)
@@ -276,7 +277,7 @@ def main() -> None:
                     leds.set_fill_color(idx, fill)
                     prev_distances[i] = curr
 
-                time.sleep(0.05)
+                time.sleep(0.06)  # inter-sensor delay reduces ultrasonic crosstalk
 
             time.sleep(1)
 
