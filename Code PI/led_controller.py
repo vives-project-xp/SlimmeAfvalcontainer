@@ -93,6 +93,7 @@ class LedController:
     """
 
     def __init__(self, led_count_map: dict[str, int] | None = None, brightness: float = DEFAULT_BRIGHTNESS):
+        # Process-isolatie als standaard: voorkomt native neopixel crashes in GUI-proces.
         self._proxy_mode = os.getenv("LED_PROCESS_ISOLATION", "1") == "1"
         self.enabled = False
         self.current_choice = Choice.NONE
