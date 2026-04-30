@@ -1,3 +1,15 @@
+"""
+Slimme Afvalcontainer – GUI with RF-DETR object detection.
+
+Inference priority:
+  1. Hailo HEF  (.hef)   – via hailo_platform (requires compiled HEF)
+  2. RF-DETR    (.pth)   – PyTorch CPU/GPU object detection
+  3. Two-stage ONNX      – stage1_main.onnx + stage2_overige.onnx
+  4. Single-stage ONNX   – model.onnx / inference_model.onnx
+"""
+
+from __future__ import annotations
+
 import argparse
 import json
 import threading
@@ -8,89 +20,108 @@ from pathlib import Path
 from queue import Empty, Queue
 
 import numpy as np
-import onnxruntime as ort
 import tkinter as tk
-from tkinter import ttk
-from led_controller import LedController
+from tkinter import font as tkfont
+
+# ── Optional heavy imports ──────────────────────────────────────────────────
+
+try:
+    import onnxruntime as ort
+    _ONNX_AVAILABLE = True
+except ImportError:
+    _ONNX_AVAILABLE = False
 
 try:
     from picamera2 import Picamera2
-except ModuleNotFoundError as exc:
-    if exc.name == "libcamera":
-        raise ModuleNotFoundError(
-            "Module 'libcamera' ontbreekt in deze Python-omgeving.\n"
-            "Op Raspberry Pi installeer je dit via apt:\n"
-            "  sudo apt install python3-libcamera python3-picamera2\n"
-            "Gebruik daarna de system Python of een venv met --system-site-packages."
-        ) from exc
-    raise
+    _PICAM_AVAILABLE = True
+except (ModuleNotFoundError, ImportError):
+    _PICAM_AVAILABLE = False
 
 try:
-    from PIL import Image, ImageTk, ImageEnhance
+    from PIL import Image, ImageTk, ImageDraw, ImageFont
 except ImportError as exc:
     raise ImportError(
-        "PIL.ImageTk ontbreekt. Installeer in je actieve omgeving:\n"
-        "  sudo apt install python3-pil.imagetk python3-tk\n"
-        "of:\n"
-        "  python -m pip install --upgrade pillow"
+        "PIL.ImageTk ontbreekt.\n  sudo apt install python3-pil.imagetk python3-tk"
     ) from exc
 
+try:
+    from led_controller import LedController  # type: ignore
+    _LED_AVAILABLE = True
+except ImportError:
+    _LED_AVAILABLE = False
+
+try:
+    from hailo_platform import (  # type: ignore
+        VDevice, HEF, ConfigureParams, HailoStreamInterface,
+        InferVStreams, InputVStreamParams, OutputVStreamParams,
+    )
+    _HAILO_AVAILABLE = True
+except ImportError:
+    _HAILO_AVAILABLE = False
+
+try:
+    from rfdetr import RFDETRBase  # type: ignore
+    _RFDETR_AVAILABLE = True
+except ImportError:
+    _RFDETR_AVAILABLE = False
+
+# ── Constants ──────────────────────────────────────────────────────────────
 
 DEFAULT_CLASSES = (
-    "Organisch",            # Index 0
-    "Overige/Batterijen",   # Index 1
-    "Overige/Elektronica",  # Index 2
-    "Overige/Glas",         # Index 3
-    "Overige/Lightbulbs",   # Index 4
-    "Overige/Metaal",       # Index 5
-    "PMD",                  # Index 6
-    "Papier",               # Index 7
-    "Restafval",            # Index 8
-)
-DEFAULT_COLORS = (
-    "#4CAF50",  # Organisch
-    "#FF7043",  # Overige/Batterijen
-    "#EF5350",  # Overige/Elektronica
-    "#26A69A",  # Overige/Glas
-    "#FFD54F",  # Overige/Lightbulbs
-    "#8D6E63",  # Overige/Metaal
-    "#FFC107",  # PMD
-    "#2196F3",  # Papier
-    "#757575",  # Restafval
+    "Organisch", "Overige/Batterijen", "Overige/Elektronica",
+    "Overige/Glas", "Overige/Lightbulbs", "Overige/Metaal",
+    "PMD", "Papier", "Restafval",
 )
 
-# Kleurenpalet (Dark Theme)
-COLOR_BG = "#1E1E1E"
-COLOR_SIDEBAR = "#2D2D2D"
-COLOR_TEXT = "#E0E0E0"
-COLOR_ACCENT = "#3498DB"
-COLOR_SUCCESS = "#2ECC71"
-COLOR_ERROR = "#E74C3C"
-
-CLASS_COLOR_MAP = {
-    "Organisch": "#4CAF50",
-    "PMD": "#FFC107",
-    "Papier": "#2196F3",
-    "Restafval": "#757575",
-    "Overige": "#9E9E9E",
+CLASS_COLOR_MAP: dict[str, str] = {
+    "Organisch":          "#4CAF50",
+    "PMD":                "#FFC107",
+    "Papier":             "#2196F3",
+    "Restafval":          "#757575",
+    "Overige":            "#9E9E9E",
     "Overige/Batterijen": "#FF7043",
-    "Overige/Elektronica": "#EF5350",
-    "Overige/Glas": "#26A69A",
+    "Overige/Elektronica":"#EF5350",
+    "Overige/Glas":       "#26A69A",
     "Overige/Lightbulbs": "#FFD54F",
-    "Overige/Metaal": "#8D6E63",
+    "Overige/Metaal":     "#8D6E63",
 }
 
+C_BG      = "#F5F5F0"
+C_HEADER  = "#FFFFFF"
+C_BORDER  = "#CCCCCC"
+C_TEXT    = "#222222"
+C_SUBTEXT = "#666666"
+C_ACCENT  = "#3498DB"
+C_SUCCESS = "#2ECC71"
+C_ERROR   = "#E74C3C"
+
+BIN_DEFS = [
+    {"key": "org",    "label": "Organisch", "idle": "#C8E6C9", "active": "#4CAF50", "border": "#388E3C"},
+    {"key": "papier", "label": "Papier",    "idle": "#BBDEFB", "active": "#2196F3", "border": "#1565C0"},
+    {"key": "pmd",    "label": "PMD",       "idle": "#FFF9C4", "active": "#FFC107", "border": "#F57F17"},
+    {"key": "rest",   "label": "Restafval", "idle": "#E0E0E0", "active": "#757575", "border": "#424242"},
+]
+
+# Keywords that map a detected class name to a bin
+_BIN_KEYWORDS: dict[str, list[str]] = {
+    "org":    ["organisch", "organic", "gft", "bio", "food", "groente", "fruit", "etens"],
+    "papier": ["papier", "paper", "karton", "cardboard", "krant", "boek", "tijdschrift"],
+    "pmd":    ["pmd", "plastic", "metaal", "metal", "blik", "fles", "fles", "drank",
+               "verpakking", "blikje", "flesje", "drankfles"],
+}
+
+
+# ── Config dataclasses ─────────────────────────────────────────────────────
 
 @dataclass(frozen=True)
 class DisplayConfig:
     model_path: str | None = None
-    window_width: int = 1024  # Breder venster
-    window_height: int = 600   # Standaard Pi 7" display
-    preview_width: int = 640   # Grotere preview
-    preview_height: int = 480
-    fullscreen: bool = False
-    rotate: int = 0
-    update_ms: int = 50       # Snellere preview update
+    window_width: int  = 1024
+    window_height: int = 600
+    fullscreen: bool   = False
+    rotate: int        = 0
+    update_ms: int     = 50
+    det_threshold: float = 0.45
 
 
 @dataclass(frozen=True)
@@ -100,858 +131,940 @@ class TwoStageConfig:
     metadata_path: str | None = None
 
 
-def resolve_model_path(model_path: str | None = None) -> list[str]:
-    """Zoek alle bruikbare ONNX-modellen, op volgorde van prioriteit."""
+# ── Hailo engine ───────────────────────────────────────────────────────────
+
+class HailoEngine:
+    def __init__(self, hef_path: str):
+        if not _HAILO_AVAILABLE:
+            raise RuntimeError("hailo_platform niet beschikbaar")
+        self._target = VDevice()
+        self._hef    = HEF(hef_path)
+        params       = ConfigureParams.create_from_hef(hef=self._hef, interface=HailoStreamInterface.PCIe)
+        self._ng     = self._target.configure(self._hef, params)[0]
+        self._ng_p   = self._ng.create_params()
+        self._in_p   = InputVStreamParams.make(self._ng)
+        self._out_p  = OutputVStreamParams.make(self._ng)
+        in_info       = self._hef.get_input_vstream_infos()[0]
+        self.input_name  = in_info.name
+        self.input_shape = tuple(in_info.shape)   # (H, W, C)
+
+    def infer(self, image_nhwc: np.ndarray) -> np.ndarray:
+        with InferVStreams(self._ng, self._in_p, self._out_p) as pipeline:
+            with self._ng.activate(self._ng_p):
+                results = pipeline.infer({self.input_name: image_nhwc})
+        return np.asarray(next(iter(results.values())), dtype=np.float32).reshape(-1)
+
+    def close(self):
+        try:
+            del self._ng
+            del self._target
+        except Exception:
+            pass
+
+
+# ── RF-DETR engine ─────────────────────────────────────────────────────────
+
+class RFDETREngine:
+    """
+    Wraps RFDETRBase for single-frame waste detection.
+    Returns (label, confidence, bbox_xyxy_normalized | None).
+    """
+
+    def __init__(self, model_path: str, threshold: float = 0.45):
+        if not _RFDETR_AVAILABLE:
+            raise RuntimeError("rfdetr pakket niet beschikbaar. Installeer: pip install rfdetr")
+        print(f"RF-DETR laden: {model_path}  (dit kan even duren op Pi CPU)")
+        self.threshold = threshold
+        self.model     = RFDETRBase(pretrain_weights=str(model_path), device="cpu")
+        self.class_names: dict[int, str] = getattr(self.model, "class_names", {})
+        print(f"RF-DETR geladen. Klassen: {self.class_names}")
+
+    def detect(self, image: "Image.Image") -> tuple[str | None, float, tuple | None]:
+        """
+        Run detection on a PIL image.
+        Returns (class_name, confidence, (x1,y1,x2,y2) normalised) or (None, 0, None).
+        """
+        import tempfile, os
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+            tmp_path = tmp.name
+        try:
+            image.save(tmp_path, format="JPEG", quality=90)
+            detections = self.model.predict(tmp_path, threshold=self.threshold)
+        finally:
+            os.unlink(tmp_path)
+
+        if len(detections) == 0:
+            return None, 0.0, None
+
+        # Pick detection with highest confidence
+        best_i    = int(np.argmax(detections.confidence))
+        conf      = float(detections.confidence[best_i])
+        class_id  = int(detections.class_id[best_i])
+        class_name= self.class_names.get(class_id, f"klasse_{class_id}")
+
+        # Bounding box in pixel coords → normalise to 0-1
+        w, h = image.size
+        if detections.xyxy is not None and len(detections.xyxy) > best_i:
+            x1, y1, x2, y2 = detections.xyxy[best_i]
+            bbox = (float(x1)/w, float(y1)/h, float(x2)/w, float(y2)/h)
+        else:
+            bbox = None
+
+        return class_name, conf, bbox
+
+    def all_detections(self, image: "Image.Image") -> list[tuple[str, float, tuple | None]]:
+        """Return all detections above threshold as list of (name, conf, bbox_norm)."""
+        import tempfile, os
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+            tmp_path = tmp.name
+        try:
+            image.save(tmp_path, format="JPEG", quality=90)
+            detections = self.model.predict(tmp_path, threshold=self.threshold)
+        finally:
+            os.unlink(tmp_path)
+
+        w, h = image.size
+        results = []
+        for i in range(len(detections)):
+            conf      = float(detections.confidence[i])
+            class_id  = int(detections.class_id[i])
+            name      = self.class_names.get(class_id, f"klasse_{class_id}")
+            if detections.xyxy is not None and len(detections.xyxy) > i:
+                x1, y1, x2, y2 = detections.xyxy[i]
+                bbox = (float(x1)/w, float(y1)/h, float(x2)/w, float(y2)/h)
+            else:
+                bbox = None
+            results.append((name, conf, bbox))
+        return results
+
+
+# ── Model-path helpers ─────────────────────────────────────────────────────
+
+def _find_hef(model_path: str | None) -> str | None:
     script_dir = Path(__file__).resolve().parent
     candidates: list[Path] = []
-
     if model_path:
-        user_path = Path(model_path).expanduser()
-        if user_path.is_absolute():
-            candidates.append(user_path)
-        else:
-            candidates.append((Path.cwd() / user_path).resolve())
-            candidates.append((script_dir / user_path).resolve())
-
-    # Prioriteit 1: klassiek classificatiemodel
-    candidates.append((script_dir / "model.onnx").resolve())
-    candidates.append((script_dir / "inference_model.onnx").resolve())
-    
-    # Zoek in AI submap
-    ai_subdir = script_dir / "AI"
-    if ai_subdir.exists():
-        candidates.append((ai_subdir / "model.onnx").resolve())
-        candidates.append((ai_subdir / "inference_model.onnx").resolve())
-
-    # Zoek in Ai-model map
-    ai_dir = script_dir.parent / "Ai-model"
-    if ai_dir.exists():
-        candidates.append((ai_dir / "model.onnx").resolve())
-        candidates.append((ai_dir / "inference_model.onnx").resolve())
-
-    # Extra fallback
-    candidates.append((script_dir / "inference_model.sim.onnx").resolve())
-
-    checked: list[Path] = []
-    seen: set[str] = set()
-    valid_candidates: list[str] = []
-
-    for candidate in candidates:
-        key = str(candidate)
-        if key in seen:
-            continue
-        seen.add(key)
-        checked.append(candidate)
-        if candidate.is_file():
-            valid_candidates.append(str(candidate))
-
-    if not valid_candidates:
-        available_models = sorted(path.name for path in script_dir.glob("*.onnx"))
-        available_text = ", ".join(available_models) if available_models else "geen"
-        checked_text = ", ".join(str(path) for path in checked)
-        raise FileNotFoundError(
-            "Geen inferences-model gevonden.\n"
-            f"Geprobeerd: {checked_text}\n"
-            f"Beschikbaar in {script_dir}: {available_text}"
-        )
-    
-    return valid_candidates
-
-
-def resolve_two_stage_paths(model_path: str | None = None) -> TwoStageConfig | None:
-    """Zoek een two-stage modelset op bekende locaties."""
-    script_dir = Path(__file__).resolve().parent
-    search_dirs: list[Path] = []
-
-    if model_path:
-        user_path = Path(model_path).expanduser()
-        if user_path.is_file():
-            if user_path.name != "stage1_main.onnx":
-                return None
-            stage1 = user_path.resolve()
-            stage2 = (stage1.parent / "stage2_overige.onnx").resolve()
-            metadata = (stage1.parent / "two_stage_metadata.json").resolve()
-            if stage2.is_file():
-                return TwoStageConfig(
-                    stage1_path=str(stage1),
-                    stage2_path=str(stage2),
-                    metadata_path=str(metadata) if metadata.is_file() else None,
-                )
-            return None
-
-        if user_path.is_dir():
-            if user_path.is_absolute():
-                search_dirs.append(user_path.resolve())
-            else:
-                search_dirs.append((Path.cwd() / user_path).resolve())
-                search_dirs.append((script_dir / user_path).resolve())
-
-    search_dirs.extend(
-        [
-            (script_dir / "AI").resolve(),
-            script_dir.resolve(),
-            (script_dir.parent / "Ai-model").resolve(),
-        ]
-    )
-
-    seen: set[str] = set()
-    for root in search_dirs:
-        root_key = str(root)
-        if root_key in seen:
-            continue
-        seen.add(root_key)
-        stage1 = root / "stage1_main.onnx"
-        stage2 = root / "stage2_overige.onnx"
-        if stage1.is_file() and stage2.is_file():
-            metadata = root / "two_stage_metadata.json"
-            return TwoStageConfig(
-                stage1_path=str(stage1),
-                stage2_path=str(stage2),
-                metadata_path=str(metadata) if metadata.is_file() else None,
-            )
-
+        p = Path(model_path).expanduser()
+        if p.suffix == ".hef":
+            candidates.append(p if p.is_absolute() else (script_dir / p).resolve())
+    for d in [script_dir, script_dir / "AI", script_dir.parent / "Ai-model"]:
+        if d.exists():
+            candidates += sorted(d.glob("*.hef"))
+    for c in candidates:
+        if c.is_file():
+            return str(c)
     return None
 
 
+def _find_rfdetr(model_path: str | None) -> str | None:
+    script_dir = Path(__file__).resolve().parent
+    candidates: list[Path] = []
+    if model_path:
+        p = Path(model_path).expanduser()
+        if p.suffix == ".pth":
+            candidates.append(p if p.is_absolute() else (script_dir / p).resolve())
+    for d in [script_dir, script_dir / "AI", script_dir.parent / "Ai-model",
+              script_dir.parent / "pi_deploy_target96"]:
+        if d.exists():
+            candidates += sorted(d.glob("*.pth"))
+    for c in candidates:
+        if c.is_file():
+            return str(c)
+    return None
+
+
+def resolve_model_path(model_path: str | None = None) -> list[str]:
+    script_dir = Path(__file__).resolve().parent
+    candidates: list[Path] = []
+    if model_path:
+        p = Path(model_path).expanduser()
+        candidates.append(p if p.is_absolute() else (script_dir / p).resolve())
+    for stem in ("model", "inference_model", "inference_model.sim"):
+        candidates.append((script_dir / f"{stem}.onnx").resolve())
+    for sub in ["AI", "../Ai-model"]:
+        d = (script_dir / sub).resolve()
+        if d.exists():
+            for stem in ("model", "inference_model"):
+                candidates.append((d / f"{stem}.onnx").resolve())
+    seen: set[str] = set()
+    valid: list[str] = []
+    for c in candidates:
+        k = str(c)
+        if k not in seen:
+            seen.add(k)
+            if c.is_file():
+                valid.append(k)
+    if not valid:
+        raise FileNotFoundError("Geen ONNX-model gevonden.")
+    return valid
+
+
+def resolve_two_stage_paths(model_path: str | None = None) -> TwoStageConfig | None:
+    script_dir = Path(__file__).resolve().parent
+    search_dirs: list[Path] = []
+    if model_path:
+        p = Path(model_path).expanduser()
+        if p.is_dir():
+            search_dirs.append(p.resolve() if p.is_absolute() else (script_dir / p).resolve())
+    search_dirs += [(script_dir / "AI").resolve(), script_dir.resolve(),
+                    (script_dir.parent / "Ai-model").resolve()]
+    seen: set[str] = set()
+    for root in search_dirs:
+        k = str(root)
+        if k in seen:
+            continue
+        seen.add(k)
+        s1, s2 = root / "stage1_main.onnx", root / "stage2_overige.onnx"
+        if s1.is_file() and s2.is_file():
+            meta = root / "two_stage_metadata.json"
+            return TwoStageConfig(str(s1), str(s2), str(meta) if meta.is_file() else None)
+    return None
+
+
+# ── Label → bin mapping ────────────────────────────────────────────────────
+
+def label_to_bin(label: str) -> str:
+    """Map any detected class name to a bin key: org / papier / pmd / rest."""
+    lower = label.strip().lower()
+    for bin_key, keywords in _BIN_KEYWORDS.items():
+        for kw in keywords:
+            if kw in lower:
+                return bin_key
+    return "rest"
+
+
+def bin_to_led_cmd(bin_key: str) -> str:
+    return {
+        "org":    "select_organisch",
+        "papier": "select_karton",
+        "pmd":    "select_pmd",
+        "rest":   "select_rest",
+    }.get(bin_key, "idle")
+
+
+def bin_label(bin_key: str) -> str:
+    return {
+        "org":    "Organisch",
+        "papier": "Papier",
+        "pmd":    "PMD",
+        "rest":   "Restafval",
+    }.get(bin_key, bin_key.upper())
+
+
+# ── Main GUI ───────────────────────────────────────────────────────────────
 
 class InferenceGUI:
     def __init__(self, config: DisplayConfig):
-        self.config = config
-        self.classes = list(DEFAULT_CLASSES)
-        self.colors = list(DEFAULT_COLORS)
-        self.running = True
-        self.initialized = False
-        self.worker_active = False
-        self.init_in_progress = False
-        self.init_retry_delay_ms = 10000
-        self.max_auto_init_retries = 6
-        self.auto_init_retry_count = 0
+        self.config   = config
+        self.classes  = list(DEFAULT_CLASSES)
+        self.running  = True
+        self.initialized         = False
+        self.worker_active       = False
+        self.init_in_progress    = False
+        self.auto_init_retry_count   = 0
+        self.max_auto_init_retries   = 6
+        self.init_retry_delay_ms     = 10_000
+
         self.result_queue: Queue[tuple[str, object]] = Queue()
         self.latest_frame: np.ndarray | None = None
+        self._annotated_photo = None   # holds last annotated frame reference
+
+        # Engine state
         self.pipeline_mode = "single"
-        self.session: ort.InferenceSession | None = None
+        self.hailo: HailoEngine | None   = None
+        self.rfdetr: RFDETREngine | None = None
+
+        # ONNX state
+        self.session           = None
         self.input_name: str | None = None
-        self.input_shape = None
+        self.input_shape       = None
         self.output_names: list[str] = []
-        self.stage1_session: ort.InferenceSession | None = None
+        self.stage1_session    = None
         self.stage1_input_name: str | None = None
         self.stage1_input_shape = None
-        self.stage2_session: ort.InferenceSession | None = None
+        self.stage2_session    = None
         self.stage2_input_name: str | None = None
         self.stage2_input_shape = None
-        self.stage1_classes: list[str] = ["Organisch", "PMD", "Papier", "Restafval", "Overige"]
+        self.stage1_classes: list[str]         = ["Organisch", "PMD", "Papier", "Restafval", "Overige"]
         self.stage2_overige_classes: list[str] = ["Batterijen", "Elektronica", "Glas", "Lightbulbs", "Metaal"]
-        self.main_label_for_stage2 = "Overige"
-        self.default_fallback = "Restafval"
+        self.main_label_for_stage2  = "Overige"
+        self.default_fallback       = "Restafval"
         self.stage1_confidence_threshold = 0.40
         self.stage2_confidence_threshold = 0.45
-        self.camera: Picamera2 | None = None
-        self.led: LedController | None = None
+
+        self.camera = None
+        self.led    = None
+
+        self._active_bin: str | None = None
+        self._bin_frames: dict[str, tk.Frame] = {}
+        self._bin_labels: dict[str, tk.Label] = {}
 
         self.setup_ui()
         self.update_ui_state(enabled=False)
-        self.set_status("Systeem opstarten...", COLOR_ACCENT)
+        self.set_status("Systeem opstarten...", C_ACCENT)
         self.update_preview()
-        
-        # Start initialisatie in achtergrond
         self.start_initialization()
+
+    # ── Initialization ────────────────────────────────────────────────────
 
     def start_initialization(self) -> None:
         if not self.running or self.init_in_progress or self.initialized:
             return
-
         self.init_in_progress = True
-        init_thread = threading.Thread(target=self._initialize_worker)
-        init_thread.daemon = True
-        init_thread.start()
-
-    def setup_ui(self) -> None:
-        self.root = tk.Tk()
-        self.root.title("AI Waste Classifier")
-        self.root.geometry(f"{self.config.window_width}x{self.config.window_height}")
-        self.root.configure(bg=COLOR_BG)
-
-        if self.config.fullscreen:
-            self.root.attributes("-fullscreen", True)
-        
-        self.root.bind("<Escape>", lambda _event: self.toggle_fullscreen())
-        self.root.bind("<F11>", lambda _event: self.toggle_fullscreen())
-        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-
-        # Styling
-        self.style = ttk.Style()
-        self.style.theme_use("clam")
-        self.style.configure("Horizontal.TProgressbar", thickness=20, troughcolor=COLOR_SIDEBAR, background=COLOR_ACCENT)
-
-        # Main Layout: 2 kolommen
-        # Links: Camera preview (groot)
-        # Rechts: Info & Controls
-        
-        main_container = tk.Frame(self.root, bg=COLOR_BG)
-        main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
-
-        # Left Column (Camera)
-        left_col = tk.Frame(main_container, bg="black", width=self.config.preview_width, height=self.config.preview_height)
-        left_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        left_col.pack_propagate(False) # Forceer grootte
-
-        self.preview_label = tk.Label(
-            left_col,
-            bg="black",
-            fg="white",
-            text="Camera laden...",
-            font=("Helvetica", 16)
-        )
-        self.preview_label.pack(fill=tk.BOTH, expand=True)
-
-        # Right Column (Controls & Results)
-        right_col = tk.Frame(main_container, bg=COLOR_SIDEBAR, width=300)
-        right_col.pack(side=tk.RIGHT, fill=tk.Y, padx=(20, 0))
-        right_col.pack_propagate(False)
-
-        # Titel
-        title_lbl = tk.Label(
-            right_col,
-            text="Slimme\nAfvalcontainer",
-            font=("Helvetica", 20, "bold"),
-            bg=COLOR_SIDEBAR,
-            fg="white",
-            justify="center"
-        )
-        title_lbl.pack(pady=(20, 30))
-
-        # Resultaat Display
-        self.prediction_var = tk.StringVar(value="Gereed")
-        self.prediction_label = tk.Label(
-            right_col,
-            textvariable=self.prediction_var,
-            font=("Helvetica", 24, "bold"),
-            bg=COLOR_SIDEBAR,
-            fg=COLOR_ACCENT,
-            wraplength=280
-        )
-        self.prediction_label.pack(pady=(0, 10))
-
-        self.confidence_var = tk.StringVar(value="-- %")
-        conf_lbl = tk.Label(
-            right_col,
-            textvariable=self.confidence_var,
-            font=("Helvetica", 14),
-            bg=COLOR_SIDEBAR,
-            fg="#AAAAAA"
-        )
-        conf_lbl.pack(pady=(0, 30))
-
-        # Knoppen
-        btn_frame = tk.Frame(right_col, bg=COLOR_SIDEBAR)
-        btn_frame.pack(fill=tk.X, padx=20, pady=10)
-
-        self.btn_classify = tk.Button(
-            btn_frame,
-            text="ANALYSEER NU",
-            command=self.classify_threaded,
-            font=("Helvetica", 14, "bold"),
-            bg=COLOR_ACCENT,
-            fg="white",
-            activebackground="#2980B9",
-            activeforeground="white",
-            bd=0,
-            padx=10,
-            pady=15,
-            cursor="hand2"
-        )
-        self.btn_classify.pack(fill=tk.X, pady=10)
-
-        # Extra ruimte tussen de knoppen
-        spacer = tk.Frame(btn_frame, bg=COLOR_SIDEBAR, height=30)
-        spacer.pack()
-
-        self.btn_reset = tk.Button(
-            btn_frame,
-            text="Reset",
-            command=self.reset_classification,
-            font=("Helvetica", 10),
-            bg="#555555",
-            fg="white",
-            activebackground="#444444",
-            activeforeground="white",
-            bd=0,
-            padx=8,
-            pady=8,
-            cursor="hand2"
-        )
-        self.btn_reset.pack(pady=5)
-
-        # Status Balk (onderaan)
-        self.status_var = tk.StringVar(value="")
-        status_bar = tk.Label(
-            right_col,
-            textvariable=self.status_var,
-            font=("Helvetica", 10),
-            bg=COLOR_SIDEBAR,
-            fg="#888888",
-            bd=1,
-            relief=tk.SUNKEN,
-            anchor=tk.W,
-            padx=10
-        )
-        status_bar.pack(side=tk.BOTTOM, fill=tk.X)
-
-        self.root.after(50, self._process_worker_messages)
+        threading.Thread(target=self._initialize_worker, daemon=True).start()
 
     def _initialize_worker(self) -> None:
         try:
-            print("Initializing model...")
             runtime_payload: dict[str, object] = {}
-            two_stage = resolve_two_stage_paths(self.config.model_path)
-            two_stage_error: Exception | None = None
 
-            if two_stage is not None:
-                try:
-                    print(f"Two-stage gevonden: {two_stage.stage1_path} + {two_stage.stage2_path}")
-                    stage1_session = ort.InferenceSession(two_stage.stage1_path)
-                    stage2_session = ort.InferenceSession(two_stage.stage2_path)
-
-                    stage1_input_meta = stage1_session.get_inputs()[0]
-                    stage2_input_meta = stage2_session.get_inputs()[0]
-
-                    metadata = self._load_two_stage_metadata(two_stage.metadata_path)
-                    stage1_classes = list(metadata.get("stage1_classes") or self.stage1_classes)
-                    stage2_classes = list(metadata.get("stage2_overige_classes") or self.stage2_overige_classes)
-                    main_label = str(metadata.get("main_label_for_stage2") or self.main_label_for_stage2)
-                    default_fallback = str(metadata.get("default_fallback") or self.default_fallback)
-                    stage1_th = self._parse_threshold(
-                        metadata,
-                        keys=("stage1_confidence_threshold", "stage1_threshold", "stage1_conf_threshold"),
-                        default=self.stage1_confidence_threshold,
-                    )
-                    stage2_th = self._parse_threshold(
-                        metadata,
-                        keys=("stage2_confidence_threshold", "stage2_threshold", "stage2_conf_threshold"),
-                        default=self.stage2_confidence_threshold,
-                    )
-
-                    combined_classes = self._build_two_stage_classes(stage1_classes, stage2_classes, main_label)
-                    runtime_payload = {
-                        "pipeline_mode": "two_stage",
-                        "stage1_session": stage1_session,
-                        "stage1_input_name": stage1_input_meta.name,
-                        "stage1_input_shape": stage1_input_meta.shape,
-                        "stage2_session": stage2_session,
-                        "stage2_input_name": stage2_input_meta.name,
-                        "stage2_input_shape": stage2_input_meta.shape,
-                        "stage1_classes": stage1_classes,
-                        "stage2_overige_classes": stage2_classes,
-                        "main_label_for_stage2": main_label,
-                        "default_fallback": default_fallback,
-                        "stage1_confidence_threshold": stage1_th,
-                        "stage2_confidence_threshold": stage2_th,
-                        "classes": combined_classes,
-                        "resolved_model": f"{Path(two_stage.stage1_path).name} + {Path(two_stage.stage2_path).name}",
-                        "output_names": [o.name for o in stage1_session.get_outputs()],
-                    }
-                except Exception as exc:
-                    two_stage_error = exc
-                    print(f"Two-stage laden mislukt: {exc}")
-                    print("Fallback naar single-stage model...")
-
-            if not runtime_payload:
-                candidates = resolve_model_path(self.config.model_path)
-                session = None
-                resolved_model = None
-                last_error = None
-                input_name = None
-                input_shape = None
-
-                for model_path in candidates:
+            # 1) Hailo HEF
+            if _HAILO_AVAILABLE:
+                hef_path = _find_hef(self.config.model_path)
+                if hef_path:
                     try:
-                        print(f"Trying to load model: {model_path}")
-                        sess = ort.InferenceSession(model_path)
-                        input_meta = sess.get_inputs()[0]
-                        input_name = input_meta.name
-                        input_shape = input_meta.shape
-                        session = sess
-                        resolved_model = model_path
-                        print(f"Successfully loaded: {model_path}")
-                        print(f"Model Input Name: {input_name}, Shape: {input_shape}")
+                        print(f"[Init] Hailo HEF: {hef_path}")
+                        hailo = HailoEngine(hef_path)
+                        runtime_payload = {
+                            "pipeline_mode": "hailo",
+                            "hailo": hailo,
+                            "classes": list(DEFAULT_CLASSES),
+                            "resolved_model": Path(hef_path).name,
+                            "output_names": [],
+                        }
+                    except Exception as exc:
+                        print(f"[Init] Hailo mislukt: {exc} → fallback")
+
+            # 2) RF-DETR .pth
+            if not runtime_payload and _RFDETR_AVAILABLE:
+                pth_path = _find_rfdetr(self.config.model_path)
+                if pth_path:
+                    try:
+                        print(f"[Init] RF-DETR: {pth_path}")
+                        rfdetr = RFDETREngine(pth_path, threshold=self.config.det_threshold)
+                        runtime_payload = {
+                            "pipeline_mode": "rfdetr",
+                            "rfdetr": rfdetr,
+                            "classes": list(DEFAULT_CLASSES),
+                            "resolved_model": Path(pth_path).name,
+                            "output_names": [],
+                        }
+                    except Exception as exc:
+                        print(f"[Init] RF-DETR mislukt: {exc} → fallback")
+
+            # 3) Two-stage ONNX
+            if not runtime_payload and _ONNX_AVAILABLE:
+                two_stage = resolve_two_stage_paths(self.config.model_path)
+                if two_stage:
+                    try:
+                        s1 = ort.InferenceSession(two_stage.stage1_path)
+                        s2 = ort.InferenceSession(two_stage.stage2_path)
+                        s1m = s1.get_inputs()[0]; s2m = s2.get_inputs()[0]
+                        meta     = self._load_metadata(two_stage.metadata_path)
+                        s1_cls   = list(meta.get("stage1_classes") or self.stage1_classes)
+                        s2_cls   = list(meta.get("stage2_overige_classes") or self.stage2_overige_classes)
+                        mlabel   = str(meta.get("main_label_for_stage2") or self.main_label_for_stage2)
+                        fallback = str(meta.get("default_fallback") or self.default_fallback)
+                        s1_th    = self._parse_threshold(meta, ("stage1_confidence_threshold",), 0.40)
+                        s2_th    = self._parse_threshold(meta, ("stage2_confidence_threshold",), 0.45)
+                        combined = self._build_two_stage_classes(s1_cls, s2_cls, mlabel)
+                        runtime_payload = {
+                            "pipeline_mode": "two_stage",
+                            "stage1_session": s1, "stage1_input_name": s1m.name,
+                            "stage1_input_shape": s1m.shape,
+                            "stage2_session": s2, "stage2_input_name": s2m.name,
+                            "stage2_input_shape": s2m.shape,
+                            "stage1_classes": s1_cls, "stage2_overige_classes": s2_cls,
+                            "main_label_for_stage2": mlabel, "default_fallback": fallback,
+                            "stage1_confidence_threshold": s1_th,
+                            "stage2_confidence_threshold": s2_th,
+                            "classes": combined,
+                            "resolved_model": f"{Path(two_stage.stage1_path).name} + {Path(two_stage.stage2_path).name}",
+                            "output_names": [o.name for o in s1.get_outputs()],
+                        }
+                    except Exception as exc:
+                        print(f"[Init] Two-stage mislukt: {exc}")
+
+            # 4) Single ONNX
+            if not runtime_payload and _ONNX_AVAILABLE:
+                for mp in resolve_model_path(self.config.model_path):
+                    try:
+                        s   = ort.InferenceSession(mp)
+                        inm = s.get_inputs()[0]
+                        runtime_payload = {
+                            "pipeline_mode": "single",
+                            "session": s,
+                            "input_name": inm.name, "input_shape": inm.shape,
+                            "output_names": [o.name for o in s.get_outputs()],
+                            "classes": list(DEFAULT_CLASSES),
+                            "resolved_model": str(mp),
+                        }
                         break
                     except Exception as exc:
-                        print(f"Failed to load {model_path}: {exc}")
-                        last_error = exc
+                        print(f"[Init] ONNX {mp} mislukt: {exc}")
 
-                if session is None:
-                    if two_stage_error is not None:
-                        raise RuntimeError(
-                            "Two-stage model laden mislukt en single-stage fallback niet gevonden.\n"
-                            f"Two-stage fout: {two_stage_error}\n"
-                            f"Single-stage fout: {last_error}"
-                        )
-                    raise last_error or RuntimeError("Geen geldig ONNX-model gevonden/geladen.")
+            if not runtime_payload:
+                raise RuntimeError("Geen bruikbaar model gevonden (HEF, PTH of ONNX).")
 
-                runtime_payload = {
-                    "pipeline_mode": "single",
-                    "session": session,
-                    "input_name": input_name,
-                    "input_shape": input_shape,
-                    "output_names": [o.name for o in session.get_outputs()],
-                    "classes": list(DEFAULT_CLASSES),
-                    "resolved_model": str(resolved_model),
-                }
+            print("[Init] Camera initialiseren...")
+            if _PICAM_AVAILABLE:
+                camera = self._initialize_camera_with_retry()
+            else:
+                print("[Init] Picamera2 niet beschikbaar – camerapreview uitgeschakeld")
+                camera = None
 
-            print("Initializing camera...")
-            camera = self._initialize_camera_with_retry()
-
-            print("Initializing LED controller...")
-            led = LedController()
+            led = None
+            if _LED_AVAILABLE:
+                try:
+                    led = LedController()
+                except Exception as exc:
+                    print(f"[Init] LED mislukt: {exc}")
 
             if not self.running:
-                camera.stop()
-                led.close()
+                if camera:
+                    camera.stop()
+                if led:
+                    led.close()
                 return
 
             runtime_payload["camera"] = camera
-            runtime_payload["led"] = led
+            runtime_payload["led"]    = led
             self.result_queue.put(("init_ok", runtime_payload))
+
         except Exception as exc:
             self.result_queue.put(("init_error", f"{exc}\n{traceback.format_exc()}"))
         finally:
             self.result_queue.put(("init_finished", None))
 
-    @staticmethod
-    def _load_two_stage_metadata(metadata_path: str | None) -> dict:
-        if not metadata_path:
-            return {}
-        try:
-            with open(metadata_path, "r", encoding="utf-8") as handle:
-                return json.load(handle)
-        except Exception as exc:
-            print(f"Metadata kon niet geladen worden ({metadata_path}): {exc}")
-            return {}
+    # ── Camera ────────────────────────────────────────────────────────────
 
-    @staticmethod
-    def _parse_threshold(metadata: dict, keys: tuple[str, ...], default: float) -> float:
-        for key in keys:
-            value = metadata.get(key)
-            if isinstance(value, (int, float)):
-                return max(0.0, min(1.0, float(value)))
-        return default
-
-    @staticmethod
-    def _build_two_stage_classes(stage1_classes: list[str], stage2_classes: list[str], main_label_for_stage2: str) -> list[str]:
-        classes: list[str] = []
-        for label in stage1_classes:
-            if label == main_label_for_stage2:
-                for sub in stage2_classes:
-                    combined = sub if sub.startswith(f"{main_label_for_stage2}/") else f"{main_label_for_stage2}/{sub}"
-                    classes.append(combined)
-            else:
-                classes.append(label)
-        return classes
-
-    def _initialize_camera_with_retry(self, attempts: int = 5, base_wait_s: float = 1.5) -> Picamera2:
+    def _initialize_camera_with_retry(self, attempts: int = 5, base_wait_s: float = 1.5):
         last_error: Exception | None = None
-
         for attempt in range(1, attempts + 1):
             camera = None
             try:
                 camera = Picamera2()
-                # Gebruik maximale resolutie voor betere kwaliteit, resize voor preview
-                camera_config = camera.create_preview_configuration(
+                cfg    = camera.create_preview_configuration(
                     main={"size": (640, 480), "format": "RGB888"}
                 )
-                camera.configure(camera_config)
+                camera.configure(cfg)
                 camera.start()
                 time.sleep(1)
-                print(f"Camera init geslaagd op poging {attempt}/{attempts}")
+                print(f"[Init] Camera OK (poging {attempt})")
                 return camera
             except Exception as exc:
                 last_error = exc
-                wait_s = base_wait_s * attempt
-                print(f"Camera init poging {attempt}/{attempts} mislukt: {exc}")
-                if camera is not None:
+                if camera:
                     try:
                         camera.stop()
                     except Exception:
                         pass
                 if attempt < attempts:
-                    time.sleep(wait_s)
-
-        raise RuntimeError(f"Camera initialisatie mislukt na {attempts} pogingen: {last_error}")
+                    time.sleep(base_wait_s * attempt)
+        raise RuntimeError(f"Camera mislukt na {attempts} pogingen: {last_error}")
 
     def update_preview(self) -> None:
         if not self.running:
             return
-
         if self.camera is None:
             self.root.after(self.config.update_ms, self.update_preview)
             return
-
         try:
             image = self.camera.capture_array()
         except Exception as exc:
-            self.set_status(f"Camera fout: {exc}", COLOR_ERROR)
+            self.set_status(f"Camera fout: {exc}", C_ERROR)
             self.root.after(self.config.update_ms, self.update_preview)
             return
 
-        # BGR naar RGB
-        image = image[:, :, ::-1]
+        image = image[:, :, ::-1]   # BGR→RGB
         self.latest_frame = image.copy()
-        
+
         img = Image.fromarray(image)
         if self.config.rotate:
             img = img.rotate(self.config.rotate, expand=True)
 
-        # Slim schalen naar preview venster met behoud van aspect ratio of 'cover'
-        preview_w = self.preview_label.winfo_width()
-        preview_h = self.preview_label.winfo_height()
-        
-        if preview_w > 1 and preview_h > 1:
-             img = img.resize((preview_w, preview_h), Image.Resampling.LANCZOS)
-        else:
-             img = img.resize((self.config.preview_width, self.config.preview_height), Image.Resampling.LANCZOS)
+        pw = self.preview_label.winfo_width()
+        ph = self.preview_label.winfo_height()
+        target = (pw, ph) if pw > 1 and ph > 1 else (640, 480)
+        img    = img.resize(target, Image.Resampling.LANCZOS)
 
         photo = ImageTk.PhotoImage(img)
         self.preview_label.configure(image=photo, text="")
-        self.preview_label.image = photo # Keep reference
-        
+        self.preview_label.image = photo
+
         self.root.after(self.config.update_ms, self.update_preview)
 
-    def preprocess_image(self, image: np.ndarray, input_shape=None) -> np.ndarray:
-        # Default target
-        target_h, target_w = 224, 224
-        
-        # Try to detect dynamic shape from model metadata
-        if input_shape:
-            try:
-                # Typically [batch, channels, height, width] or [batch, height, width, channels]
-                shape = input_shape
-                if len(shape) == 4:
-                     # Check for NCHW format (most common for ONNX/PyTorch)
-                     # shape[2] and shape[3] are likely H/W
-                     if isinstance(shape[2], int) and isinstance(shape[3], int):
-                         if shape[2] > 0 and shape[3] > 0:
-                            target_h, target_w = shape[2], shape[3]
-                     # Check for NHWC (TensorFlow style)
-                     # shape[1] and shape[2] are likely H/W if channel is last
-                     elif isinstance(shape[1], int) and isinstance(shape[2], int):
-                         if shape[1] > 0 and shape[2] > 0 and (shape[3] == 3 or shape[3] == 1):
-                            target_h, target_w = shape[1], shape[2]
-            except Exception:
-                pass # Fallback to default 224x224
-        
-        img = Image.fromarray(image).resize((target_w, target_h))
-        img_array = np.array(img).astype(np.float32) / 255.0
+    # ── UI setup ──────────────────────────────────────────────────────────
 
-        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-        std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-        img_array = (img_array - mean) / std
+    def setup_ui(self) -> None:
+        self.root = tk.Tk()
+        self.root.title("Slimme Vuilbak")
+        self.root.geometry(f"{self.config.window_width}x{self.config.window_height}")
+        self.root.configure(bg=C_BG)
+        self.root.resizable(True, True)
 
-        img_array = img_array.transpose(2, 0, 1)
-        img_array = np.expand_dims(img_array, axis=0).astype(np.float32)
-        return img_array
+        if self.config.fullscreen:
+            self.root.attributes("-fullscreen", True)
+
+        self.root.bind("<Escape>", lambda _e: self.toggle_fullscreen())
+        self.root.bind("<F11>",    lambda _e: self.toggle_fullscreen())
+        self.root.bind("<space>",  lambda _e: self.classify_threaded())
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+        # ── Header ──────────────────────────────────────────────────────
+        header = tk.Frame(self.root, bg=C_HEADER,
+                          highlightbackground=C_BORDER, highlightthickness=1)
+        header.pack(fill=tk.X, padx=16, pady=(12, 6))
+
+        tk.Label(
+            header, text="Slimme Vuilbak",
+            font=tkfont.Font(family="Helvetica", size=22, weight="bold"),
+            bg=C_HEADER, fg=C_TEXT, pady=10
+        ).pack(side=tk.LEFT, padx=20)
+
+        self.status_var = tk.StringVar(value="Opstarten...")
+        self.status_lbl = tk.Label(
+            header, textvariable=self.status_var,
+            font=("Helvetica", 10), bg=C_HEADER, fg=C_SUBTEXT
+        )
+        self.status_lbl.pack(side=tk.RIGHT, padx=20)
+
+        # ── Camera area ─────────────────────────────────────────────────
+        cam_outer = tk.Frame(self.root, bg=C_BG)
+        cam_outer.pack(fill=tk.BOTH, expand=True, padx=16, pady=4)
+
+        cam_border = tk.Frame(cam_outer, bg=C_BORDER)
+        cam_border.pack(fill=tk.BOTH, expand=True)
+
+        self.preview_label = tk.Label(
+            cam_border, bg="#111111",
+            text="Camera laden...",
+            font=("Helvetica", 16), fg="#888888"
+        )
+        self.preview_label.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+
+        # Overlays drawn on top of camera
+        self.prediction_var = tk.StringVar(value="")
+        self.prediction_overlay = tk.Label(
+            cam_border, textvariable=self.prediction_var,
+            font=("Helvetica", 26, "bold"),
+            bg="#000000", fg="white", padx=12, pady=6
+        )
+        self.confidence_var = tk.StringVar(value="")
+        self.confidence_overlay = tk.Label(
+            cam_border, textvariable=self.confidence_var,
+            font=("Helvetica", 13),
+            bg="#000000", fg="#CCCCCC", padx=10, pady=4
+        )
+
+        # ── Bottom bar ──────────────────────────────────────────────────
+        bottom = tk.Frame(self.root, bg=C_BG)
+        bottom.pack(fill=tk.X, padx=16, pady=(6, 14))
+
+        btn_col = tk.Frame(bottom, bg=C_BG)
+        btn_col.pack(side=tk.LEFT, padx=(0, 20))
+
+        self.btn_classify = tk.Button(
+            btn_col, text="ANALYSEER",
+            command=self.classify_threaded,
+            font=("Helvetica", 13, "bold"),
+            bg=C_ACCENT, fg="white",
+            activebackground="#2980B9", activeforeground="white",
+            bd=0, padx=14, pady=20, cursor="hand2", relief=tk.FLAT
+        )
+        self.btn_classify.pack(fill=tk.Y, expand=True)
+
+        self.btn_reset = tk.Button(
+            btn_col, text="Reset",
+            command=self.reset_classification,
+            font=("Helvetica", 10),
+            bg="#CCCCCC", fg=C_TEXT,
+            activebackground="#BBBBBB",
+            bd=0, padx=10, pady=6, cursor="hand2", relief=tk.FLAT
+        )
+        self.btn_reset.pack(fill=tk.X, pady=(6, 0))
+
+        bins_frame = tk.Frame(bottom, bg=C_BG)
+        bins_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        for b in BIN_DEFS:
+            col = tk.Frame(bins_frame, bg=C_BG)
+            col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=8)
+
+            tk.Label(
+                col, text=b["label"],
+                font=("Helvetica", 10, "bold"),
+                bg=C_BG, fg=C_SUBTEXT
+            ).pack()
+
+            bin_frame = tk.Frame(
+                col, bg=b["idle"],
+                highlightbackground=b["border"], highlightthickness=3, bd=0
+            )
+            bin_frame.pack(fill=tk.BOTH, expand=True, ipady=18)
+
+            icon = tk.Label(
+                bin_frame, text="♻",
+                font=("Helvetica", 24),
+                bg=b["idle"], fg=b["border"]
+            )
+            icon.pack(expand=True)
+
+            self._bin_frames[b["key"]] = bin_frame
+            self._bin_labels[b["key"]] = icon
+
+        self.root.after(50, self._process_worker_messages)
+
+    # ── Inference ─────────────────────────────────────────────────────────
 
     def classify_threaded(self) -> None:
-        if not self.running or self.worker_active:
+        if not self.running or self.worker_active or not self.initialized:
             return
-        if not self.initialized:
-            return
-
         self.worker_active = True
         self.update_ui_state(enabled=False)
-        self.set_status("Analyseren...", COLOR_ACCENT)
+        self.set_status("Analyseren...", C_ACCENT)
         self.prediction_var.set("Bezig...")
         self.confidence_var.set("")
-        
-        thread = threading.Thread(target=self._classify_worker)
-        thread.daemon = True
-        thread.start()
-
-    @staticmethod
-    def _to_probabilities(raw_output: np.ndarray) -> np.ndarray:
-        arr = np.asarray(raw_output, dtype=np.float32).reshape(-1)
-        if arr.size == 0:
-            raise RuntimeError("Lege model output")
-
-        if np.all(arr >= 0.0):
-            total = float(arr.sum())
-            if 0.98 <= total <= 1.02:
-                return arr
-
-        exp_x = np.exp(arr - np.max(arr))
-        return exp_x / max(float(exp_x.sum()), 1e-9)
-
-    def _index_for_label(self, label: str) -> int:
-        if label in self.classes:
-            return self.classes.index(label)
-        self.classes.append(label)
-        self.colors.append(CLASS_COLOR_MAP.get(label, COLOR_TEXT))
-        return len(self.classes) - 1
-
-    def _run_single_stage(self, image: np.ndarray) -> tuple[np.ndarray, int]:
-        if self.session is None or self.input_name is None:
-            raise RuntimeError("Model niet geladen")
-
-        img_array = self.preprocess_image(image, self.input_shape)
-        outputs = self.session.run(None, {self.input_name: img_array})
-        probs = self._to_probabilities(np.asarray(outputs[0], dtype=np.float32))
-        idx = int(np.argmax(probs))
-        return probs, idx
-
-    def _run_two_stage(self, image: np.ndarray) -> tuple[np.ndarray, int]:
-        if self.stage1_session is None or self.stage1_input_name is None:
-            raise RuntimeError("Stage 1 model niet geladen")
-
-        img1 = self.preprocess_image(image, self.stage1_input_shape)
-        out1 = self.stage1_session.run(None, {self.stage1_input_name: img1})
-        probs1 = self._to_probabilities(np.asarray(out1[0], dtype=np.float32))
-        idx1 = int(np.argmax(probs1))
-
-        if idx1 >= len(self.stage1_classes):
-            raise RuntimeError("Stage 1 output index buiten bereik")
-
-        label1 = self.stage1_classes[idx1]
-        conf1 = float(probs1[idx1])
-        final_label = label1
-        final_conf = conf1
-
-        if conf1 < self.stage1_confidence_threshold:
-            final_label = self.default_fallback
-            final_conf = conf1
-        elif label1 == self.main_label_for_stage2:
-            if self.stage2_session is None or self.stage2_input_name is None:
-                raise RuntimeError("Stage 2 model niet geladen")
-            img2 = self.preprocess_image(image, self.stage2_input_shape)
-            out2 = self.stage2_session.run(None, {self.stage2_input_name: img2})
-            probs2 = self._to_probabilities(np.asarray(out2[0], dtype=np.float32))
-            idx2 = int(np.argmax(probs2))
-            if idx2 >= len(self.stage2_overige_classes):
-                raise RuntimeError("Stage 2 output index buiten bereik")
-
-            sub_label = self.stage2_overige_classes[idx2]
-            conf2 = float(probs2[idx2])
-            if conf2 < self.stage2_confidence_threshold:
-                final_label = self.main_label_for_stage2
-                final_conf = conf2
-            else:
-                final_label = sub_label if sub_label.startswith(f"{self.main_label_for_stage2}/") else f"{self.main_label_for_stage2}/{sub_label}"
-                final_conf = conf2
-
-        probabilities = np.zeros(len(self.classes), dtype=np.float32)
-        final_idx = self._index_for_label(final_label)
-        if final_idx >= len(probabilities):
-            probabilities = np.zeros(len(self.classes), dtype=np.float32)
-        probabilities[final_idx] = final_conf
-        return probabilities, final_idx
+        threading.Thread(target=self._classify_worker, daemon=True).start()
 
     def _classify_worker(self) -> None:
         try:
             if self.latest_frame is not None:
-                image = self.latest_frame.copy()
+                image_np = self.latest_frame.copy()
             elif self.camera is not None:
-                image = self.camera.capture_array()
+                image_np = self.camera.capture_array()[:, :, ::-1]
             else:
-                raise RuntimeError("Geen beeld")
+                raise RuntimeError("Geen cameraframe beschikbaar")
 
-            start = time.time()
-            if self.pipeline_mode == "two_stage":
-                probabilities, predicted_idx = self._run_two_stage(image)
+            pil_img = Image.fromarray(image_np)
+            start   = time.time()
+
+            if self.pipeline_mode == "rfdetr":
+                result = self._run_rfdetr(pil_img)
+            elif self.pipeline_mode == "hailo":
+                result = self._run_hailo(image_np)
+            elif self.pipeline_mode == "two_stage":
+                result = self._run_two_stage(image_np)
             else:
-                probabilities, predicted_idx = self._run_single_stage(image)
-            inference_time = (time.time() - start) * 1000
+                result = self._run_single_stage(image_np)
 
-            self.result_queue.put(("result", (probabilities, predicted_idx, inference_time)))
+            ms = (time.time() - start) * 1000
+            self.result_queue.put(("result", (*result, ms, pil_img)))
+
         except Exception as exc:
             self.result_queue.put(("error", str(exc)))
         finally:
             self.result_queue.put(("done", None))
 
+    # result format: (bin_key, label, confidence, bboxes_norm_list)
+    def _run_rfdetr(self, pil_img: "Image.Image") -> tuple:
+        if self.rfdetr is None:
+            raise RuntimeError("RF-DETR niet geladen")
+        all_det = self.rfdetr.all_detections(pil_img)
+        if not all_det:
+            return "rest", "Niets gevonden", 0.0, []
+        # Sort by confidence descending, pick best
+        all_det.sort(key=lambda x: x[1], reverse=True)
+        best_name, best_conf, best_bbox = all_det[0]
+        bboxes = [(name, conf, bbox) for name, conf, bbox in all_det if bbox is not None]
+        bin_key = label_to_bin(best_name)
+        return bin_key, best_name, best_conf, bboxes
+
+    def _run_hailo(self, image_np: np.ndarray) -> tuple:
+        if self.hailo is None:
+            raise RuntimeError("Hailo niet geladen")
+        arr  = self._preprocess_nhwc(image_np, self.hailo.input_shape)
+        raw  = self.hailo.infer(arr)
+        prob = self._to_probs(raw)
+        idx  = int(np.argmax(prob))
+        label= self.classes[idx] if idx < len(self.classes) else self.default_fallback
+        conf = float(prob[idx])
+        bin_key = label_to_bin(label)
+        return bin_key, label, conf, []
+
+    def _run_single_stage(self, image_np: np.ndarray) -> tuple:
+        if self.session is None:
+            raise RuntimeError("ONNX model niet geladen")
+        arr   = self._preprocess_nchw(image_np, self.input_shape)
+        out   = self.session.run(None, {self.input_name: arr})
+        prob  = self._to_probs(np.asarray(out[0], dtype=np.float32))
+        idx   = int(np.argmax(prob))
+        label = self.classes[idx] if idx < len(self.classes) else self.default_fallback
+        conf  = float(prob[idx])
+        bin_key = label_to_bin(label)
+        return bin_key, label, conf, []
+
+    def _run_two_stage(self, image_np: np.ndarray) -> tuple:
+        if self.stage1_session is None:
+            raise RuntimeError("Stage1 niet geladen")
+        arr1  = self._preprocess_nchw(image_np, self.stage1_input_shape)
+        out1  = self.stage1_session.run(None, {self.stage1_input_name: arr1})
+        prob1 = self._to_probs(np.asarray(out1[0], dtype=np.float32))
+        idx1  = int(np.argmax(prob1)); conf1 = float(prob1[idx1])
+        lbl1  = self.stage1_classes[idx1] if idx1 < len(self.stage1_classes) else self.default_fallback
+
+        if conf1 < self.stage1_confidence_threshold:
+            final_lbl, final_conf = self.default_fallback, conf1
+        elif lbl1 == self.main_label_for_stage2 and self.stage2_session is not None:
+            arr2  = self._preprocess_nchw(image_np, self.stage2_input_shape)
+            out2  = self.stage2_session.run(None, {self.stage2_input_name: arr2})
+            prob2 = self._to_probs(np.asarray(out2[0], dtype=np.float32))
+            idx2  = int(np.argmax(prob2)); conf2 = float(prob2[idx2])
+            sub   = self.stage2_overige_classes[idx2] if idx2 < len(self.stage2_overige_classes) else ""
+            if conf2 < self.stage2_confidence_threshold:
+                final_lbl, final_conf = self.main_label_for_stage2, conf2
+            else:
+                full = sub if sub.startswith(f"{self.main_label_for_stage2}/") else f"{self.main_label_for_stage2}/{sub}"
+                final_lbl, final_conf = full, conf2
+        else:
+            final_lbl, final_conf = lbl1, conf1
+
+        bin_key = label_to_bin(final_lbl)
+        return bin_key, final_lbl, final_conf, []
+
+    # ── Preprocessing ─────────────────────────────────────────────────────
+
+    @staticmethod
+    def _preprocess_nchw(image_np: np.ndarray, input_shape=None) -> np.ndarray:
+        th, tw = 224, 224
+        if input_shape and len(input_shape) == 4:
+            try:
+                if isinstance(input_shape[2], int) and input_shape[2] > 0:
+                    th, tw = input_shape[2], input_shape[3]
+            except Exception:
+                pass
+        img = Image.fromarray(image_np).resize((tw, th))
+        arr = np.array(img).astype(np.float32) / 255.0
+        arr = (arr - np.array([0.485, 0.456, 0.406])) / np.array([0.229, 0.224, 0.225])
+        return np.expand_dims(arr.transpose(2, 0, 1), axis=0).astype(np.float32)
+
+    @staticmethod
+    def _preprocess_nhwc(image_np: np.ndarray, input_shape=None) -> np.ndarray:
+        th, tw = 224, 224
+        if input_shape and len(input_shape) >= 2:
+            try:
+                th, tw = int(input_shape[0]), int(input_shape[1])
+            except Exception:
+                pass
+        img = Image.fromarray(image_np).resize((tw, th))
+        arr = np.array(img).astype(np.float32) / 255.0
+        arr = (arr - np.array([0.485, 0.456, 0.406])) / np.array([0.229, 0.224, 0.225])
+        return np.expand_dims(arr, axis=0).astype(np.float32)
+
+    @staticmethod
+    def _to_probs(raw: np.ndarray) -> np.ndarray:
+        arr = np.asarray(raw, dtype=np.float32).reshape(-1)
+        if arr.size == 0:
+            raise RuntimeError("Lege model output")
+        if np.all(arr >= 0.0) and 0.98 <= float(arr.sum()) <= 1.02:
+            return arr
+        exp_x = np.exp(arr - np.max(arr))
+        return exp_x / max(float(exp_x.sum()), 1e-9)
+
+    # ── Worker messages ────────────────────────────────────────────────────
+
     def _process_worker_messages(self) -> None:
         if not self.running:
             return
-
         while True:
             try:
-                message_type, payload = self.result_queue.get_nowait()
+                mtype, payload = self.result_queue.get_nowait()
             except Empty:
                 break
 
-            if message_type == "result":
-                probabilities, predicted_idx, inference_time = payload
-                self._show_results(probabilities, predicted_idx, inference_time)
-            elif message_type == "error":
-                self.set_status(f"Fout: {payload}", COLOR_ERROR)
-            elif message_type == "init_ok":
-                data = payload
-                self.pipeline_mode = str(data.get("pipeline_mode", "single"))
-                self.classes = list(data.get("classes", DEFAULT_CLASSES))
-                self.colors = [CLASS_COLOR_MAP.get(name, COLOR_TEXT) for name in self.classes]
+            if mtype == "result":
+                bin_key, label, conf, bboxes, ms, pil_img = payload
+                self._show_results(bin_key, label, conf, bboxes, ms, pil_img)
 
-                self.session = data.get("session")
-                self.input_name = data.get("input_name")
-                self.input_shape = data.get("input_shape")
-                self.output_names = list(data.get("output_names", []))
+            elif mtype == "error":
+                self.set_status(f"Fout: {payload}", C_ERROR)
 
-                self.stage1_session = data.get("stage1_session")
-                self.stage1_input_name = data.get("stage1_input_name")
-                self.stage1_input_shape = data.get("stage1_input_shape")
-                self.stage2_session = data.get("stage2_session")
-                self.stage2_input_name = data.get("stage2_input_name")
-                self.stage2_input_shape = data.get("stage2_input_shape")
-                self.stage1_classes = list(data.get("stage1_classes", self.stage1_classes))
-                self.stage2_overige_classes = list(data.get("stage2_overige_classes", self.stage2_overige_classes))
-                self.main_label_for_stage2 = str(data.get("main_label_for_stage2", self.main_label_for_stage2))
-                self.default_fallback = str(data.get("default_fallback", self.default_fallback))
-                self.stage1_confidence_threshold = float(data.get("stage1_confidence_threshold", self.stage1_confidence_threshold))
-                self.stage2_confidence_threshold = float(data.get("stage2_confidence_threshold", self.stage2_confidence_threshold))
-
-                self.camera = data.get("camera")
-                self.led = data.get("led")
+            elif mtype == "init_ok":
+                d = payload
+                self.pipeline_mode = str(d.get("pipeline_mode", "single"))
+                self.classes       = list(d.get("classes", DEFAULT_CLASSES))
+                self.hailo         = d.get("hailo")
+                self.rfdetr        = d.get("rfdetr")
+                self.session       = d.get("session")
+                self.input_name    = d.get("input_name")
+                self.input_shape   = d.get("input_shape")
+                self.output_names  = list(d.get("output_names", []))
+                self.stage1_session    = d.get("stage1_session")
+                self.stage1_input_name = d.get("stage1_input_name")
+                self.stage1_input_shape= d.get("stage1_input_shape")
+                self.stage2_session    = d.get("stage2_session")
+                self.stage2_input_name = d.get("stage2_input_name")
+                self.stage2_input_shape= d.get("stage2_input_shape")
+                self.stage1_classes    = list(d.get("stage1_classes", self.stage1_classes))
+                self.stage2_overige_classes = list(d.get("stage2_overige_classes", self.stage2_overige_classes))
+                self.main_label_for_stage2  = str(d.get("main_label_for_stage2", self.main_label_for_stage2))
+                self.default_fallback       = str(d.get("default_fallback", self.default_fallback))
+                self.stage1_confidence_threshold = float(d.get("stage1_confidence_threshold", 0.40))
+                self.stage2_confidence_threshold = float(d.get("stage2_confidence_threshold", 0.45))
+                self.camera = d.get("camera")
+                self.led    = d.get("led")
                 self.initialized = True
                 self.auto_init_retry_count = 0
 
-                resolved_model = str(data.get("resolved_model", "onbekend"))
-                status_text = f"Klaar ({self.pipeline_mode}). Model: {resolved_model}"
-                if self.led and self.led.enabled:
-                    status_text += " | LED OK"
-                else:
-                    status_text += " | LED (uitgeschakeld)"
-
-                self.set_status(status_text, COLOR_SUCCESS)
+                engine_tag = {
+                    "hailo":     "Hailo AI Hat+",
+                    "rfdetr":    "RF-DETR (CPU)",
+                    "two_stage": "ONNX 2-stage",
+                    "single":    "ONNX",
+                }.get(self.pipeline_mode, self.pipeline_mode)
+                model_name = str(d.get("resolved_model", "onbekend"))
+                self.set_status(f"Klaar – {engine_tag}  |  {model_name}", C_SUCCESS)
                 self.update_ui_state(enabled=True)
-                self.prediction_var.set("Klaar")
+                self.prediction_var.set("")
                 if self.led:
                     self.led.send_command("idle")
-            elif message_type == "init_error":
+
+            elif mtype == "init_error":
                 self.initialized = False
-                short_error = str(payload).strip().splitlines()[0]
-                self.set_status(f"Init Error: {short_error}", COLOR_ERROR)
+                short = str(payload).strip().splitlines()[0]
+                self.set_status(f"Init fout: {short}", C_ERROR)
                 self.auto_init_retry_count += 1
-                # Probeer beperkt automatisch opnieuw; daarna manueel om een oneindige loop te vermijden.
                 if self.auto_init_retry_count <= self.max_auto_init_retries:
-                    self.root.after(self.init_retry_delay_ms, self._retry_initialization_if_needed)
+                    self.root.after(self.init_retry_delay_ms, self._retry_init_if_needed)
                 else:
-                    self.set_status(
-                        "Init blijft falen. Druk op Reset om opnieuw te proberen.",
-                        COLOR_ERROR,
-                    )
-            elif message_type == "init_finished":
+                    self.set_status("Init blijft falen – druk Reset om opnieuw te proberen.", C_ERROR)
+
+            elif mtype == "init_finished":
                 self.init_in_progress = False
-            elif message_type == "done":
+
+            elif mtype == "done":
                 self.worker_active = False
                 self.update_ui_state(self.initialized)
 
         self.root.after(50, self._process_worker_messages)
 
-    def _retry_initialization_if_needed(self) -> None:
+    def _retry_init_if_needed(self) -> None:
         if not self.running or self.initialized or self.init_in_progress:
             return
-        self.set_status("Init opnieuw proberen...", COLOR_ACCENT)
+        self.set_status("Init opnieuw proberen...", C_ACCENT)
         self.start_initialization()
 
-    def _show_results(self, probabilities, predicted_idx, inference_time):
-        led_cmd = None
-        prob = 0.0
+    # ── Results ────────────────────────────────────────────────────────────
 
-        if 0 <= predicted_idx < len(self.classes):
-            name = self.classes[predicted_idx]
-            color = self.colors[predicted_idx]
-            if 0 <= predicted_idx < len(probabilities):
-                prob = float(probabilities[predicted_idx])
-        else:
-            name = self.default_fallback
-            color = CLASS_COLOR_MAP.get(name, COLOR_TEXT)
+    def _show_results(
+        self,
+        bin_key: str,
+        label: str,
+        conf: float,
+        bboxes: list,
+        ms: float,
+        pil_img: "Image.Image",
+    ) -> None:
+        # Draw bounding boxes if we have them (RF-DETR)
+        if bboxes:
+            annotated = self._draw_bboxes(pil_img, bboxes)
+            pw = self.preview_label.winfo_width()
+            ph = self.preview_label.winfo_height()
+            if pw > 1 and ph > 1:
+                annotated = annotated.resize((pw, ph), Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(annotated)
+            self.preview_label.configure(image=photo, text="")
+            self.preview_label.image = photo
+            self._annotated_photo = photo   # keep reference
 
-        # Veiligheidsfallback: lage confidence op batterijen -> restafval.
-        if name.lower() == "overige/batterijen" and prob < 0.85:
-            name = "Restafval"
-            color = CLASS_COLOR_MAP.get(name, COLOR_TEXT)
-            prob = max(prob, 0.85)
-
-        led_cmd = self._label_to_led_cmd(name)
-
-        # LED-strip aansturen via lokale controller
+        # LED
+        led_cmd = bin_to_led_cmd(bin_key)
         if self.led and led_cmd:
-            response = self.led.send_command(led_cmd)
-            print(f"[LED] Output: {name} ({prob*100:.1f}%) -> Command: {led_cmd}")
+            self.led.send_command(led_cmd)
 
-        # Update de User Interface (UI)
-        self.prediction_var.set(name.upper())
-        self.prediction_label.config(fg=color)
-        self.confidence_var.set(f"{prob*100:.1f}% zekerheid")
+        # Overlay text
+        display_label = bin_label(bin_key) if bin_key else label
+        color = {b["key"]: b["active"] for b in BIN_DEFS}.get(bin_key, C_ACCENT)
 
-        status_text = f"Inferentie: {inference_time:.1f}ms"
-        if led_cmd:
-            status_text += f" | LED: {led_cmd}"
-        self.set_status(status_text, "#888888")
+        self.prediction_var.set(display_label.upper())
+        self.prediction_overlay.config(fg=color)
+        self.prediction_overlay.place(x=10, y=10)
+
+        self.confidence_var.set(f"{conf*100:.1f}%  –  {label}")
+        self.confidence_overlay.place(x=10, y=56)
+
+        self._highlight_bin(bin_key)
+
+        engine_tag = {"hailo": "Hailo", "rfdetr": "RF-DETR", "two_stage": "ONNX-2s", "single": "ONNX"}.get(self.pipeline_mode, "")
+        self.set_status(f"{ms:.0f} ms  |  {engine_tag}  |  LED: {led_cmd}", "#555555")
 
     @staticmethod
-    def _label_to_led_cmd(label: str) -> str:
-        normalized = label.strip().lower()
-        if normalized.startswith("overige/"):
-            return "reject"
+    def _draw_bboxes(img: "Image.Image", bboxes: list) -> "Image.Image":
+        """Draw bounding boxes on a PIL image. bboxes = list of (name, conf, (x1,y1,x2,y2) normalised)."""
+        out  = img.copy()
+        draw = ImageDraw.Draw(out)
+        w, h = out.size
+        try:
+            fnt = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
+        except Exception:
+            fnt = ImageFont.load_default()
 
-        root = normalized.split("/", 1)[0].strip()
-        if root in {"organisch", "bio"}:
-            return "select_organisch"
-        if root == "pmd":
-            return "select_pmd"
-        if root in {"papier", "karton"}:
-            return "select_karton"
-        if root == "overige":
-            return "reject"
-        if root == "restafval":
-            return "select_rest"
-        return "idle"
+        color_cycle = ["#4CAF50", "#2196F3", "#FFC107", "#E91E63", "#FF5722"]
+        for i, (name, conf, bbox) in enumerate(bboxes):
+            if bbox is None:
+                continue
+            x1n, y1n, x2n, y2n = bbox
+            x1, y1, x2, y2 = int(x1n*w), int(y1n*h), int(x2n*w), int(y2n*h)
+            col = color_cycle[i % len(color_cycle)]
+            draw.rectangle([x1, y1, x2, y2], outline=col, width=3)
+            txt = f"{name}  {conf*100:.0f}%"
+            draw.rectangle([x1, y1-22, x1+len(txt)*9, y1], fill=col)
+            draw.text((x1+4, y1-20), txt, fill="white", font=fnt)
+        return out
+
+    def _highlight_bin(self, active_key: str | None) -> None:
+        for b in BIN_DEFS:
+            k  = b["key"]
+            fr = self._bin_frames[k]
+            ic = self._bin_labels[k]
+            if k == active_key:
+                fr.config(bg=b["active"], highlightbackground=b["border"])
+                ic.config(bg=b["active"], fg="white")
+            else:
+                fr.config(bg=b["idle"],   highlightbackground=b["border"])
+                ic.config(bg=b["idle"],   fg=b["border"])
+        self._active_bin = active_key
 
     def reset_classification(self) -> None:
-        """Reset de classificatie en stop eventuele actieve analyses."""
-        # Stop de worker
         self.worker_active = False
-        
-        # Reset de display
-        self.prediction_var.set("Gereed")
-        self.prediction_label.config(fg=COLOR_ACCENT)
-        self.confidence_var.set("-- %")
-        
-        # Reset ledstrips
+        self.prediction_var.set("")
+        self.confidence_var.set("")
+        self.prediction_overlay.place_forget()
+        self.confidence_overlay.place_forget()
+        self._annotated_photo = None
+        self._highlight_bin(None)
         if self.led:
             self.led.send_command("idle")
-        self.set_status("Gereset", COLOR_SUCCESS)
-
-        # Als init nog niet rond is, laat Reset een handmatige herstart van init doen.
+        self.set_status("Gereset", C_SUCCESS)
         if not self.initialized and not self.init_in_progress:
             self.auto_init_retry_count = 0
-            self.set_status("Init opnieuw starten...", COLOR_ACCENT)
             self.start_initialization()
             return
-        
-        # Heractiveer de UI
         if self.initialized:
             self.update_ui_state(enabled=True)
 
     def update_ui_state(self, enabled: bool) -> None:
-        state = "normal" if enabled else "disabled"
-        bg_color = COLOR_ACCENT if enabled else "#555555"
-        self.btn_classify.config(state=state, bg=bg_color)
-        # Reset button blijft altijd enabled als systeem geïnitialiseerd is
+        self.btn_classify.config(
+            state="normal" if enabled else "disabled",
+            bg=C_ACCENT if enabled else "#AAAAAA"
+        )
         if self.initialized:
             self.btn_reset.config(state="normal")
 
-    def set_status(self, text: str, color: str) -> None:
+    def set_status(self, text: str, color: str = C_SUBTEXT) -> None:
         self.status_var.set(text)
-        # self.status_bar.config(fg=color) # Optioneel
+        self.status_lbl.config(fg=color)
 
     def toggle_fullscreen(self) -> None:
-        """Toggle fullscreen mode on/off."""
-        current = self.root.attributes("-fullscreen")
-        self.root.attributes("-fullscreen", not current)
+        self.root.attributes("-fullscreen", not self.root.attributes("-fullscreen"))
 
     def on_closing(self) -> None:
         self.running = False
         try:
-            if self.camera is not None:
+            if self.camera:
                 self.camera.stop()
-            if self.led is not None:
+            if self.hailo:
+                self.hailo.close()
+            if self.led:
                 self.led.close()
         finally:
             self.root.destroy()
@@ -959,15 +1072,57 @@ class InferenceGUI:
     def run(self) -> None:
         self.root.mainloop()
 
+    # ── Helpers ────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _load_metadata(path: str | None) -> dict:
+        if not path:
+            return {}
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as exc:
+            print(f"Metadata fout ({path}): {exc}")
+            return {}
+
+    @staticmethod
+    def _parse_threshold(meta: dict, keys: tuple, default: float) -> float:
+        for k in keys:
+            v = meta.get(k)
+            if isinstance(v, (int, float)):
+                return max(0.0, min(1.0, float(v)))
+        return default
+
+    @staticmethod
+    def _build_two_stage_classes(s1_cls: list[str], s2_cls: list[str], main_label: str) -> list[str]:
+        out: list[str] = []
+        for lbl in s1_cls:
+            if lbl == main_label:
+                for sub in s2_cls:
+                    out.append(sub if sub.startswith(f"{main_label}/") else f"{main_label}/{sub}")
+            else:
+                out.append(lbl)
+        return out
+
+
+# ── Entry point ────────────────────────────────────────────────────────────
 
 def get_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", dest="model_path", help="Specifiek model pad")
-    parser.add_argument("--fullscreen", action="store_true", help="Start fullscreen")
-    return parser.parse_args()
+    p = argparse.ArgumentParser()
+    p.add_argument("--model",      dest="model_path", help="Model pad (.hef, .pth, of .onnx)")
+    p.add_argument("--fullscreen", action="store_true")
+    p.add_argument("--rotate",     type=int, default=0, help="Camera rotatie in graden")
+    p.add_argument("--threshold",  type=float, default=0.45, help="Detectie confidence drempel")
+    return p.parse_args()
+
 
 if __name__ == "__main__":
-    args = get_args()
-    config = DisplayConfig(model_path=args.model_path, fullscreen=args.fullscreen)
+    args   = get_args()
+    config = DisplayConfig(
+        model_path=args.model_path,
+        fullscreen=args.fullscreen,
+        rotate=args.rotate,
+        det_threshold=args.threshold,
+    )
     app = InferenceGUI(config)
     app.run()
