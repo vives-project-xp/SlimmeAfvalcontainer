@@ -131,11 +131,14 @@ class UltrasonicMonitor:
     }
     CONTAINER_HEIGHT_CM = 65.0
 
-    def __init__(self) -> None:
+    def __init__(self, debug: bool = False, debug_every_cycles: int = 1) -> None:
         self.enabled = _GPIO_AVAILABLE
+        self.debug = bool(debug)
+        self.debug_every_cycles = max(1, int(debug_every_cycles))
         self._running = False
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
+        self._cycle_count = 0
         self._status: dict[str, dict[str, object]] = {
             k: {"fill_pct": None, "is_full": False, "text": "n.v.t." if k == "org" else "onbekend"}
             for k in self.SENSOR_MAP
@@ -154,6 +157,7 @@ class UltrasonicMonitor:
             self._running = True
             self._thread = threading.Thread(target=self._loop, daemon=True)
             self._thread.start()
+            self._debug_print("Ultrasonic monitor gestart")
         except Exception as exc:
             print(f"[Ultrasoon] Init mislukt: {exc}")
             self.enabled = False
@@ -175,6 +179,8 @@ class UltrasonicMonitor:
 
     def _loop(self) -> None:
         while self._running:
+            self._cycle_count += 1
+            should_print_cycle = self.debug and (self._cycle_count % self.debug_every_cycles == 0)
             for key, cfg in self.SENSOR_MAP.items():
                 if not cfg:
                     continue
@@ -189,9 +195,18 @@ class UltrasonicMonitor:
                     txt = f"bijna vol ({fill}%)"
                 else:
                     txt = f"{fill}%"
+                if should_print_cycle:
+                    trig = cfg["trig"]
+                    echo = cfg["echo"]
+                    d_txt = f"{d:.1f}cm" if d is not None else "None"
+                    self._debug_print(
+                        f"{key:<6} trig={trig:>2} echo={echo:>2} distance={d_txt:>8} fill={fill:>3} status={txt}"
+                    )
                 with self._lock:
                     self._status[key] = {"fill_pct": fill if d is not None else None, "is_full": is_full, "text": txt}
                 time.sleep(0.05)
+            if should_print_cycle:
+                self._debug_print("-" * 72)
             time.sleep(1.0)
 
     @staticmethod
@@ -225,6 +240,10 @@ class UltrasonicMonitor:
             time.sleep(0.02)
         return (sum(vals) / len(vals)) if vals else None
 
+    def _debug_print(self, msg: str) -> None:
+        if self.debug:
+            print(f"[Ultrasoon DEBUG] {msg}")
+
     def _calc_fill_pct(self, distance_cm: float | None) -> int:
         if distance_cm is None:
             return -1
@@ -243,6 +262,8 @@ class DisplayConfig:
     rotate: int        = 0
     update_ms: int     = 50
     det_threshold: float = 0.45
+    ultra_debug: bool = False
+    ultra_debug_every_cycles: int = 1
 
 
 @dataclass(frozen=True)
@@ -533,7 +554,10 @@ class InferenceGUI:
 
         self.camera = None
         self.led    = None
-        self.ultra  = UltrasonicMonitor()
+        self.ultra  = UltrasonicMonitor(
+            debug=config.ultra_debug,
+            debug_every_cycles=config.ultra_debug_every_cycles,
+        )
 
         self._active_bin: str | None = None
         self._bin_frames: dict[str, tk.Frame] = {}
@@ -1351,16 +1375,53 @@ def get_args():
     p.add_argument("--fullscreen", action="store_true")
     p.add_argument("--rotate",     type=int, default=0, help="Camera rotatie in graden")
     p.add_argument("--threshold",  type=float, default=0.45, help="Detectie confidence drempel")
+    p.add_argument("--ultra-debug", action="store_true",
+                   help="Print debug regels voor ultrasoonsensoren")
+    p.add_argument("--ultra-debug-every-cycles", type=int, default=1,
+                   help="Print elke N meetcycli (1 = elke cyclus)")
+    p.add_argument("--ultra-only", action="store_true",
+                   help="Start alleen ultrasoon monitor (geen GUI vereist)")
+    p.add_argument("--ultra-runtime", type=int, default=0,
+                   help="Stop ultra-only mode na N seconden (0 = oneindig)")
     return p.parse_args()
+
+
+def run_ultrasonic_debug_only(debug: bool, debug_every_cycles: int, runtime_s: int) -> None:
+    print("[Ultrasoon] Ultra-only modus gestart")
+    monitor = UltrasonicMonitor(debug=debug, debug_every_cycles=debug_every_cycles)
+    if not monitor.enabled:
+        print("[Ultrasoon] GPIO niet beschikbaar")
+        return
+    start = time.time()
+    try:
+        while True:
+            if runtime_s > 0 and (time.time() - start) >= runtime_s:
+                print("[Ultrasoon] Runtime bereikt, stoppen")
+                break
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        print("\n[Ultrasoon] Onderbroken met Ctrl+C")
+    finally:
+        monitor.close()
+        print("[Ultrasoon] Ultra-only modus gestopt")
 
 
 if __name__ == "__main__":
     args   = get_args()
+    if args.ultra_only:
+        run_ultrasonic_debug_only(
+            debug=args.ultra_debug,
+            debug_every_cycles=args.ultra_debug_every_cycles,
+            runtime_s=args.ultra_runtime,
+        )
+        raise SystemExit(0)
     config = DisplayConfig(
         model_path=args.model_path,
         fullscreen=args.fullscreen,
         rotate=args.rotate,
         det_threshold=args.threshold,
+        ultra_debug=args.ultra_debug,
+        ultra_debug_every_cycles=args.ultra_debug_every_cycles,
     )
     app = InferenceGUI(config)
     app.run()
