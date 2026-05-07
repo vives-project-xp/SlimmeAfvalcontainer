@@ -5,17 +5,10 @@ Sensor → strip mapping:
     Sensor 1 – Restafval  → GPIO18  (PWM0, channel 0)
     Sensor 2 – PMD        → GPIO13  (PWM1, channel 1)
     Sensor 3 – Papier     → GPIO12  (PWM0 alt, channel 0)
-    Sensor 4 – Glas       → GPIO19  (PCM, channel 1)
+    Sensor 4 – Organisch       → GPIO19  (PCM, channel 1)
 
 ⚠️  rpi_ws281x vereist sudo:
         sudo python slimme_afvalcontainer.py
-
-Vullingsgedrag:
-    < 50 %  → basiskleur @ 40 % helderheid
-    50–79 % → basiskleur @ 70 % helderheid
-    ≥ 80 %  → basiskleur volledig
-    VOL     → oranje flikker (5×) + blijft oranje
-    Afval gegooid → korte witte flits, daarna terug naar vullingskleur
 """
 
 from __future__ import annotations
@@ -28,20 +21,25 @@ from rpi_ws281x import PixelStrip, Color, WS2811_STRIP_GRB
 
 
 # ── Ultrasoon configuratie ────────────────────────────────────────────────────
-SENSOR_1_TRIG = 25;  SENSOR_1_ECHO = 26 
-SENSOR_2_TRIG = 22;   SENSOR_2_ECHO = 4
+SENSOR_1_TRIG = 25;  SENSOR_1_ECHO = 26
+SENSOR_2_TRIG = 22;  SENSOR_2_ECHO = 4
 SENSOR_3_TRIG = 23;  SENSOR_3_ECHO = 24
-SENSOR_4_TRIG = 17;   SENSOR_4_ECHO = 27
-
+SENSOR_4_TRIG = 17;  SENSOR_4_ECHO = 27
 
 CONTAINER_HEIGHT_CM = 65.0
 DEBOUNCE_TIME       = 1.5
 
+# HC-SR04 timing constants
+TRIGGER_PULSE_S     = 0.00001   # 10 µs trigger pulse
+ECHO_TIMEOUT_S      = 0.04      # 40 ms → max ~6.9 m range; more forgiving than 25ms
+INTER_SAMPLE_S      = 0.070     # 70 ms between samples (HC-SR04 datasheet)
+INTER_SENSOR_S      = 0.05      # 50 ms between sensors to avoid crosstalk
+
 SENSORS = [
-    {"id": 1, "name": "Restafval", "strip_idx": 0, "trig": SENSOR_1_TRIG, "echo": SENSOR_1_ECHO, "threshold": 10},
-    {"id": 2, "name": "PMD",       "strip_idx": 1, "trig": SENSOR_2_TRIG, "echo": SENSOR_2_ECHO, "threshold": 10},
-    {"id": 3, "name": "Papier",    "strip_idx": 2, "trig": SENSOR_3_TRIG, "echo": SENSOR_3_ECHO, "threshold": 10},
-    {"id": 4, "name": "Glas",      "strip_idx": 3, "trig": SENSOR_4_TRIG, "echo": SENSOR_4_ECHO, "threshold": 10},
+    {"id": 1, "name": "Restafval", "strip_idx": 0, "trig": SENSOR_1_TRIG, "echo": SENSOR_1_ECHO, "threshold": 5},
+    {"id": 2, "name": "PMD",       "strip_idx": 1, "trig": SENSOR_2_TRIG, "echo": SENSOR_2_ECHO, "threshold": 5},
+    {"id": 3, "name": "Papier",    "strip_idx": 2, "trig": SENSOR_3_TRIG, "echo": SENSOR_3_ECHO, "threshold": 5},
+    {"id": 4, "name": "Glas",      "strip_idx": 3, "trig": SENSOR_4_TRIG, "echo": SENSOR_4_ECHO, "threshold": 5},
 ]
 
 
@@ -97,7 +95,7 @@ class StripController:
             print(f"[LED] {len(self._strips)} strips actief.")
         except Exception as exc:
             print(f"[LED] Init mislukt: {exc}\n  → Draai het script met sudo!")
-            self._strips.clear()  # prevent destructor segfault on failed init
+            self._strips.clear()
 
     def _fill(self, idx: int, rgb: tuple) -> None:
         strip = self._strips[idx]
@@ -154,7 +152,10 @@ def setup_gpio() -> None:
     for s in SENSORS:
         GPIO.setup(s["trig"], GPIO.OUT, initial=GPIO.LOW)
         GPIO.setup(s["echo"], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-    time.sleep(0.5)  # let sensors complete any in-progress measurement
+
+    time.sleep(0.5)
+    print("[GPIO] Sensoren geïnitialiseerd.")
+    print("[GPIO] Wacht tot sensoren stabiel zijn...")
 
 
 def check_echo_pins() -> None:
@@ -165,40 +166,72 @@ def check_echo_pins() -> None:
         print(f"  GPIO{s['echo']:2d}  {s['name']:10s}: {'LOW' if state == 0 else 'HIGH'}  {label}")
 
 
-def measure_distance(sensor: dict, timeout: float = 0.038) -> float | None:
-    # Wait for echo to be LOW before triggering (clears any stuck-high state)
-    t = time.time()
-    while GPIO.input(sensor["echo"]) == 1:
-        if time.time() - t >= timeout:
-            return None
+def measure_distance(sensor: dict, retries: int = 2) -> float | None:
+    trig = sensor["trig"]
+    echo = sensor["echo"]
 
-    GPIO.output(sensor["trig"], GPIO.HIGH)
-    time.sleep(0.00001)
-    GPIO.output(sensor["trig"], GPIO.LOW)
+    for attempt in range(retries):
+        try:
+            # Guarantee TRIG is LOW before we start
+            GPIO.output(trig, GPIO.LOW)
+            time.sleep(0.00001)  # 10 µs settling
 
-    t = time.time()
-    while GPIO.input(sensor["echo"]) == 0:
-        if time.time() - t >= timeout:
-            return None
-    start = time.time()
+            # Send 10 µs trigger pulse
+            GPIO.output(trig, GPIO.HIGH)
+            time.sleep(TRIGGER_PULSE_S)
+            GPIO.output(trig, GPIO.LOW)
 
-    while GPIO.input(sensor["echo"]) == 1:
-        if time.time() - start >= timeout:
-            return None
-    stop = time.time()
+            # Wait for echo to go HIGH (sensor starts returning pulse)
+            timeout_high = time.time() + ECHO_TIMEOUT_S
+            pulse_start = None
+            while time.time() < timeout_high:
+                if GPIO.input(echo) == 1:
+                    pulse_start = time.time()
+                    break
+                time.sleep(0.000001)
 
-    distance = ((stop - start) * 34300) / 2
-    return distance if 2 < distance <= 400 else None
+            if pulse_start is None:
+                continue  # Retry if no echo detected
+
+            # Wait for echo to go LOW (pulse finished)
+            timeout_low = time.time() + ECHO_TIMEOUT_S
+            pulse_end = None
+            while time.time() < timeout_low:
+                if GPIO.input(echo) == 0:
+                    pulse_end = time.time()
+                    break
+                time.sleep(0.000001)
+
+            if pulse_end is None:
+                continue  # Retry if echo stuck HIGH
+
+            distance_cm = (pulse_end - pulse_start) * 34300 / 2
+
+            # Sanity check: HC-SR04 is reliable in 2–400 cm range
+            if 2.0 < distance_cm < 400.0:
+                return distance_cm
+        except Exception as e:
+            print(f"  [Sensor {sensor['id']}] Attempt {attempt + 1} failed: {e}")
+            continue
+
+    return None
 
 
 def measure_average(sensor: dict, samples: int = 3) -> float | None:
-    readings = []
-    for _ in range(samples):
-        d = measure_distance(sensor)
+    readings: list[float] = []
+    for i in range(samples):
+        d = measure_distance(sensor, retries=2)
         if d is not None:
             readings.append(d)
-        time.sleep(0.03)
-    return sum(readings) / len(readings) if readings else None
+        if i < samples - 1:  # Don't sleep after last sample
+            time.sleep(INTER_SAMPLE_S)
+
+    if not readings:
+        return None
+
+    readings.sort()
+    mid = len(readings) // 2
+    return readings[mid] if len(readings) % 2 else (readings[mid - 1] + readings[mid]) / 2
 
 
 def calc_fill_pct(distance: float | None) -> int:
@@ -224,10 +257,13 @@ def main() -> None:
     setup_gpio()
     check_echo_pins()
     leds = StripController()
+    prev_distances: list[float | None] = []
+    for sensor in SENSORS:
+        prev_distances.append(measure_average(sensor, samples=5))
+        time.sleep(INTER_SENSOR_S)
 
-    prev_distances = [measure_average(s, samples=5) for s in SENSORS]
-    last_throw     = [0.0] * len(SENSORS)
-    is_full        = [False] * len(SENSORS)
+    last_throw = [0.0] * len(SENSORS)
+    is_full    = [False] * len(SENSORS)
 
     for i, sensor in enumerate(SENSORS):
         leds.set_fill_color(sensor["strip_idx"], calc_fill_pct(prev_distances[i]))
@@ -235,6 +271,8 @@ def main() -> None:
     print("Smart bin klaar!\n")
 
     try:
+        consecutive_failures = [0] * len(SENSORS)
+
         while True:
             for i, sensor in enumerate(SENSORS):
                 idx = sensor["strip_idx"]
@@ -245,10 +283,15 @@ def main() -> None:
                 curr = measure_average(sensor, samples=3)
 
                 if curr is None:
-                    print(f"Sensor {sensor['id']} ({sensor['name']}): geen echo.")
-                    leds.set_color(idx, OFF)
+                    consecutive_failures[i] += 1
+                    if consecutive_failures[i] >= 3:
+                        print(f"⚠️  Sensor {sensor['id']} ({sensor['name']}): Herhaalde fouten ({consecutive_failures[i]}x)")
+                    else:
+                        print(f"[Sensor {sensor['id']}] geen echo (poging {consecutive_failures[i]}/3).")
+                    time.sleep(INTER_SENSOR_S)
                     continue
 
+                consecutive_failures[i] = 0
                 fill = calc_fill_pct(curr)
                 print(f"Sensor {sensor['id']} ({sensor['name']}): {curr:.1f} cm | {fill}%")
 
@@ -260,6 +303,7 @@ def main() -> None:
                         leds.blink(idx, ORANGE, times=5, interval=0.1)
                     leds.set_color(idx, ORANGE)
                     prev_distances[i] = curr
+                    time.sleep(INTER_SENSOR_S)
                     continue
                 else:
                     is_full[i] = False
@@ -277,9 +321,9 @@ def main() -> None:
                     leds.set_fill_color(idx, fill)
                     prev_distances[i] = curr
 
-                time.sleep(0.06)  # inter-sensor delay reduces ultrasonic crosstalk
+                time.sleep(INTER_SENSOR_S)
 
-            time.sleep(1)
+            time.sleep(0.5)
 
     except KeyboardInterrupt:
         print("\nAfgesloten.")

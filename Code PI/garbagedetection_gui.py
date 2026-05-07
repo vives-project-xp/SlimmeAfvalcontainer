@@ -112,8 +112,8 @@ BIN_DEFS = [
 _BIN_KEYWORDS: dict[str, list[str]] = {
     "org":    ["organisch", "organic", "gft", "bio", "food", "groente", "fruit", "etens"],
     "papier": ["papier", "paper", "karton", "cardboard", "krant", "boek", "tijdschrift"],
-    "pmd":    ["pmd", "plastic", "metaal", "metal", "blik", "fles", "fles", "drank",
-               "verpakking", "blikje", "flesje", "drankfles"],
+    "pmd":    ["pmd", "plastic", "metaal", "metal", "blik", "fles", "drank", "verpakking", "blikje", "flesje", "drankfles"],
+    "rest":   ["restafval", "rest", "overig"],
 }
 
 
@@ -126,8 +126,7 @@ class UltrasonicMonitor:
         "rest":   {"trig": 25, "echo": 26},
         "pmd":    {"trig": 22, "echo": 4},
         "papier": {"trig": 23, "echo": 24},
-        # In existing hardware file sensor 4 is Glas; no dedicated Organisch sensor.
-        "org":    None,
+        "org":    {"trig": 17, "echo": 27},
     }
     CONTAINER_HEIGHT_CM = 65.0
 
@@ -137,8 +136,10 @@ class UltrasonicMonitor:
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
         self._status: dict[str, dict[str, object]] = {
-            k: {"fill_pct": None, "is_full": False, "text": "n.v.t." if k == "org" else "onbekend"}
-            for k in self.SENSOR_MAP
+            "org": {"fill_pct": None, "is_full": False, "text": "onbekend"},
+            "papier": {"fill_pct": None, "is_full": False, "text": "onbekend"},
+            "pmd": {"fill_pct": None, "is_full": False, "text": "onbekend"},
+            "rest": {"fill_pct": None, "is_full": False, "text": "onbekend"},
         }
         if not self.enabled:
             return
@@ -150,12 +151,13 @@ class UltrasonicMonitor:
                     continue
                 GPIO.setup(cfg["trig"], GPIO.OUT, initial=GPIO.LOW)
                 GPIO.setup(cfg["echo"], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-            time.sleep(0.2)
+            time.sleep(0.5)
+            print("[Ultrasoon GUI] Sensoren geïnitialiseerd.")
             self._running = True
             self._thread = threading.Thread(target=self._loop, daemon=True)
             self._thread.start()
         except Exception as exc:
-            print(f"[Ultrasoon] Init mislukt: {exc}")
+            print(f"[Ultrasoon GUI] Init mislukt: {exc}")
             self.enabled = False
 
     def close(self) -> None:
@@ -174,6 +176,7 @@ class UltrasonicMonitor:
             return {k: dict(v) for k, v in self._status.items()}
 
     def _loop(self) -> None:
+        consecutive_failures: dict[str, int] = {"org": 0, "papier": 0, "pmd": 0, "rest": 0}
         while self._running:
             for key, cfg in self.SENSOR_MAP.items():
                 if not cfg:
@@ -182,48 +185,70 @@ class UltrasonicMonitor:
                 fill = self._calc_fill_pct(d)
                 is_full = (d is not None and (d < 5.0 or fill >= 95))
                 if d is None:
-                    txt = "geen meting"
-                elif is_full:
-                    txt = f"VOL ({fill}%)"
-                elif fill >= 80:
-                    txt = f"bijna vol ({fill}%)"
+                    consecutive_failures[key] += 1
+                    txt = f"geen meting ({consecutive_failures[key]})"
                 else:
-                    txt = f"{fill}%"
+                    consecutive_failures[key] = 0
+                    if is_full:
+                        txt = f"VOL ({fill}%)"
+                    elif fill >= 80:
+                        txt = f"bijna vol ({fill}%)"
+                    else:
+                        txt = f"{fill}%"
                 with self._lock:
                     self._status[key] = {"fill_pct": fill if d is not None else None, "is_full": is_full, "text": txt}
                 time.sleep(0.05)
             time.sleep(1.0)
 
     @staticmethod
-    def _measure_distance(cfg: dict, timeout: float = 0.038) -> float | None:
-        t0 = time.time()
-        while GPIO.input(cfg["echo"]) == 1:
-            if time.time() - t0 >= timeout:
-                return None
-        GPIO.output(cfg["trig"], GPIO.HIGH)
-        time.sleep(0.00001)
-        GPIO.output(cfg["trig"], GPIO.LOW)
+    def _measure_distance(cfg: dict, timeout: float = 0.04, retries: int = 2) -> float | None:
+        """Measure distance with improved reliability and error handling."""
+        for attempt in range(retries):
+            try:
+                GPIO.output(cfg["trig"], GPIO.LOW)
+                time.sleep(0.00001)
 
-        t1 = time.time()
-        while GPIO.input(cfg["echo"]) == 0:
-            if time.time() - t1 >= timeout:
-                return None
-        start = time.time()
-        while GPIO.input(cfg["echo"]) == 1:
-            if time.time() - start >= timeout:
-                return None
-        stop = time.time()
-        d = ((stop - start) * 34300.0) / 2.0
-        return d if 2.0 < d <= 400.0 else None
+                GPIO.output(cfg["trig"], GPIO.HIGH)
+                time.sleep(0.00001)
+                GPIO.output(cfg["trig"], GPIO.LOW)
+
+                t_high_start = time.time()
+                while GPIO.input(cfg["echo"]) == 0:
+                    if time.time() - t_high_start >= timeout:
+                        continue  # Retry on this attempt
+                start = time.time()
+
+                t_low_start = time.time()
+                while GPIO.input(cfg["echo"]) == 1:
+                    if time.time() - t_low_start >= timeout:
+                        break  # Force exit if timeout
+                end = time.time()
+
+                if time.time() - t_low_start >= timeout:
+                    continue  # Retry if echo stuck HIGH
+
+                d = ((end - start) * 34300.0) / 2.0
+                if 2.0 < d <= 400.0:
+                    return d
+            except Exception:
+                continue
+
+        return None
 
     def _measure_average(self, cfg: dict, samples: int = 3) -> float | None:
+        """Measure average distance using median for stability."""
         vals: list[float] = []
-        for _ in range(samples):
+        for i in range(samples):
             d = self._measure_distance(cfg)
             if d is not None:
                 vals.append(d)
-            time.sleep(0.02)
-        return (sum(vals) / len(vals)) if vals else None
+            if i < samples - 1:
+                time.sleep(0.07)
+        if not vals:
+            return None
+        vals.sort()
+        mid = len(vals) // 2
+        return vals[mid] if len(vals) % 2 else (vals[mid - 1] + vals[mid]) / 2
 
     def _calc_fill_pct(self, distance_cm: float | None) -> int:
         if distance_cm is None:
@@ -1186,10 +1211,7 @@ class InferenceGUI:
             return
         if not self.ultra or not self.ultra.enabled:
             for k, lbl in self._bin_fill_labels.items():
-                if k == "org":
-                    lbl.config(text="niveau: n.v.t.", fg=C_SUBTEXT)
-                else:
-                    lbl.config(text="niveau: uit", fg=C_SUBTEXT)
+                lbl.config(text="niveau: uit", fg=C_SUBTEXT)
             self.root.after(1000, self._update_ultrasonic_ui)
             return
 
@@ -1198,9 +1220,7 @@ class InferenceGUI:
             data = snap.get(key, {})
             txt = str(data.get("text", "onbekend"))
             full = bool(data.get("is_full", False))
-            if txt == "n.v.t.":
-                lbl.config(text="niveau: n.v.t.", fg=C_SUBTEXT)
-            elif full:
+            if full:
                 lbl.config(text=f"niveau: {txt}", fg=C_ERROR)
             else:
                 lbl.config(text=f"niveau: {txt}", fg=C_SUBTEXT)
