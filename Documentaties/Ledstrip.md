@@ -41,9 +41,9 @@ GPIO-pin ──[ 220 Ω ]──── DIN LED-strip
 
 | Strip naam   | GPIO pin | Aantal LEDs |
 |--------------|----------|-------------|
-| `rest`       | GPIO 18  | 51          |
-| `karton`     | GPIO 13  | 38          |
-| `organisch`  | GPIO 12  | 51          |
+| `rest`       | GPIO 18  | 50          |
+| `karton`     | GPIO 13  | 37          |
+| `organisch`  | GPIO 12  | 50          |
 | `pmd`        | GPIO 19  | 51          |
 
 > De GPIO-nummering volgt het BCM-schema (niet de fysieke pin-nummers).
@@ -97,9 +97,9 @@ Alle instellingen hebben een standaardwaarde maar kunnen overschreven worden via
 | `LED_BRIGHTNESS`        | `0.25`    | Helderheid van alle strips (0.0 – 1.0)            |
 | `LED_MAX_CURRENT_A`     | `5.0`     | Maximale stroomtoevoer in ampère                  |
 | `LED_CURRENT_HEADROOM`  | `0.85`    | Veiligheidsmarge op de max stroom (bijv. 85%)     |
-| `LED_COUNT_REST`        | `51`      | Aantal LEDs op de REST-strip                      |
-| `LED_COUNT_KARTON`      | `38`      | Aantal LEDs op de KARTON-strip                    |
-| `LED_COUNT_ORGANISCH`   | `51`      | Aantal LEDs op de ORGANISCH-strip                 |
+| `LED_COUNT_REST`        | `50`      | Aantal LEDs op de REST-strip                      |
+| `LED_COUNT_KARTON`      | `37`      | Aantal LEDs op de KARTON-strip                    |
+| `LED_COUNT_ORGANISCH`   | `50`      | Aantal LEDs op de ORGANISCH-strip                 |
 | `LED_COUNT_PMD`         | `51`      | Aantal LEDs op de PMD-strip                       |
 | `LED_PROCESS_ISOLATION` | `1`       | Subproces-isolatie aan (`1`) of uit (`0`)         |
 
