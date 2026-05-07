@@ -106,12 +106,12 @@ Bij een nieuw commando gaat eerst alles uit, daarna alleen de gekozen strip aan.
 
 ## HC-SR04 ultrasonische sensors (4x)
 
-Bij gebruik van 4 HC-SR04 sensoren koos ik vaste GPIO pinnen die niet conflicteren met de LED-data pins (18, 13, 12, 19).
+Onderstaande pinout komt overeen met de originele `Ultrasone_controller.py`:
 
-- Sensor 1: TRIG -> GPIO17 (pin 11), ECHO -> GPIO27 (pin 13)
-- Sensor 2: TRIG -> GPIO22 (pin 15), ECHO -> GPIO4  (pin 7)
-- Sensor 3: TRIG -> GPIO23 (pin 16), ECHO -> GPIO5  (pin 29)
-- Sensor 4: TRIG -> GPIO24 (pin 18), ECHO -> GPIO6  (pin 31)
+- Sensor 1 (Restafval): TRIG -> GPIO25 (pin 22), ECHO -> GPIO26 (pin 37)
+- Sensor 2 (PMD): TRIG -> GPIO22 (pin 15), ECHO -> GPIO4 (pin 7)
+- Sensor 3 (Papier): TRIG -> GPIO23 (pin 16), ECHO -> GPIO24 (pin 18)
+- Sensor 4 (Glas): TRIG -> GPIO17 (pin 11), ECHO -> GPIO27 (pin 13)
 
 Power voor alle HC-SR04:
 - VCC -> 5V (pin 2 of 4)

@@ -65,11 +65,7 @@ try:
 except ImportError:
     _RFDETR_AVAILABLE = False
 
-try:
-    import RPi.GPIO as GPIO  # type: ignore
-    _GPIO_AVAILABLE = True
-except ImportError:
-    _GPIO_AVAILABLE = False
+from ultrasone_controller import UltrasonicMonitor
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
@@ -117,140 +113,6 @@ _BIN_KEYWORDS: dict[str, list[str]] = {
 }
 
 
-# ── Ultrasonic monitor ────────────────────────────────────────────────────
-
-class UltrasonicMonitor:
-    """Background monitor for bin fill-level using HC-SR04 sensors."""
-
-    SENSOR_MAP = {
-        "rest":   {"trig": 25, "echo": 26},
-        "pmd":    {"trig": 22, "echo": 4},
-        "papier": {"trig": 23, "echo": 24},
-        # In existing hardware file sensor 4 is Glas; no dedicated Organisch sensor.
-        "org":    None,
-    }
-    CONTAINER_HEIGHT_CM = 65.0
-
-    def __init__(self, debug: bool = False, debug_every_cycles: int = 1) -> None:
-        self.enabled = _GPIO_AVAILABLE
-        self.debug = bool(debug)
-        self.debug_every_cycles = max(1, int(debug_every_cycles))
-        self._running = False
-        self._thread: threading.Thread | None = None
-        self._lock = threading.Lock()
-        self._cycle_count = 0
-        self._status: dict[str, dict[str, object]] = {
-            k: {"fill_pct": None, "is_full": False, "text": "n.v.t." if k == "org" else "onbekend"}
-            for k in self.SENSOR_MAP
-        }
-        if not self.enabled:
-            return
-        try:
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setwarnings(False)
-            for cfg in self.SENSOR_MAP.values():
-                if not cfg:
-                    continue
-                GPIO.setup(cfg["trig"], GPIO.OUT, initial=GPIO.LOW)
-                GPIO.setup(cfg["echo"], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-            time.sleep(0.2)
-            self._running = True
-            self._thread = threading.Thread(target=self._loop, daemon=True)
-            self._thread.start()
-            self._debug_print("Ultrasonic monitor gestart")
-        except Exception as exc:
-            print(f"[Ultrasoon] Init mislukt: {exc}")
-            self.enabled = False
-
-    def close(self) -> None:
-        if not self.enabled:
-            return
-        self._running = False
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=1.0)
-        try:
-            GPIO.cleanup()
-        except Exception:
-            pass
-
-    def snapshot(self) -> dict[str, dict[str, object]]:
-        with self._lock:
-            return {k: dict(v) for k, v in self._status.items()}
-
-    def _loop(self) -> None:
-        while self._running:
-            self._cycle_count += 1
-            should_print_cycle = self.debug and (self._cycle_count % self.debug_every_cycles == 0)
-            for key, cfg in self.SENSOR_MAP.items():
-                if not cfg:
-                    continue
-                d = self._measure_average(cfg, samples=3)
-                fill = self._calc_fill_pct(d)
-                is_full = (d is not None and (d < 5.0 or fill >= 95))
-                if d is None:
-                    txt = "geen meting"
-                elif is_full:
-                    txt = f"VOL ({fill}%)"
-                elif fill >= 80:
-                    txt = f"bijna vol ({fill}%)"
-                else:
-                    txt = f"{fill}%"
-                if should_print_cycle:
-                    trig = cfg["trig"]
-                    echo = cfg["echo"]
-                    d_txt = f"{d:.1f}cm" if d is not None else "None"
-                    self._debug_print(
-                        f"{key:<6} trig={trig:>2} echo={echo:>2} distance={d_txt:>8} fill={fill:>3} status={txt}"
-                    )
-                with self._lock:
-                    self._status[key] = {"fill_pct": fill if d is not None else None, "is_full": is_full, "text": txt}
-                time.sleep(0.05)
-            if should_print_cycle:
-                self._debug_print("-" * 72)
-            time.sleep(1.0)
-
-    @staticmethod
-    def _measure_distance(cfg: dict, timeout: float = 0.038) -> float | None:
-        t0 = time.time()
-        while GPIO.input(cfg["echo"]) == 1:
-            if time.time() - t0 >= timeout:
-                return None
-        GPIO.output(cfg["trig"], GPIO.HIGH)
-        time.sleep(0.00001)
-        GPIO.output(cfg["trig"], GPIO.LOW)
-
-        t1 = time.time()
-        while GPIO.input(cfg["echo"]) == 0:
-            if time.time() - t1 >= timeout:
-                return None
-        start = time.time()
-        while GPIO.input(cfg["echo"]) == 1:
-            if time.time() - start >= timeout:
-                return None
-        stop = time.time()
-        d = ((stop - start) * 34300.0) / 2.0
-        return d if 2.0 < d <= 400.0 else None
-
-    def _measure_average(self, cfg: dict, samples: int = 3) -> float | None:
-        vals: list[float] = []
-        for _ in range(samples):
-            d = self._measure_distance(cfg)
-            if d is not None:
-                vals.append(d)
-            time.sleep(0.02)
-        return (sum(vals) / len(vals)) if vals else None
-
-    def _debug_print(self, msg: str) -> None:
-        if self.debug:
-            print(f"[Ultrasoon DEBUG] {msg}")
-
-    def _calc_fill_pct(self, distance_cm: float | None) -> int:
-        if distance_cm is None:
-            return -1
-        pct = ((self.CONTAINER_HEIGHT_CM - distance_cm) / self.CONTAINER_HEIGHT_CM) * 100.0
-        return max(0, min(100, int(pct)))
-
-
 # ── Config dataclasses ─────────────────────────────────────────────────────
 
 @dataclass(frozen=True)
@@ -264,6 +126,10 @@ class DisplayConfig:
     det_threshold: float = 0.45
     ultra_debug: bool = False
     ultra_debug_every_cycles: int = 1
+    org_ultra_trig: int | None = None
+    org_ultra_echo: int | None = None
+    pmd_ultra_trig: int | None = None
+    pmd_ultra_echo: int | None = None
 
 
 @dataclass(frozen=True)
@@ -554,12 +420,20 @@ class InferenceGUI:
 
         self.camera = None
         self.led    = None
+        sensor_overrides: dict[str, dict[str, int] | None] = {}
+        if config.org_ultra_trig is not None and config.org_ultra_echo is not None:
+            sensor_overrides["org"] = {"trig": config.org_ultra_trig, "echo": config.org_ultra_echo}
+        if config.pmd_ultra_trig is not None and config.pmd_ultra_echo is not None:
+            sensor_overrides["pmd"] = {"trig": config.pmd_ultra_trig, "echo": config.pmd_ultra_echo}
+
         self.ultra  = UltrasonicMonitor(
             debug=config.ultra_debug,
             debug_every_cycles=config.ultra_debug_every_cycles,
+            sensor_overrides=sensor_overrides,
         )
 
         self._active_bin: str | None = None
+        self._awaiting_throw_bin: str | None = None
         self._bin_frames: dict[str, tk.Frame] = {}
         self._bin_labels: dict[str, tk.Label] = {}
         self._bin_fill_labels: dict[str, tk.Label] = {}
@@ -1188,6 +1062,9 @@ class InferenceGUI:
             led_resp = self.led.send_command(led_cmd)
             if isinstance(led_resp, str) and (led_resp.startswith("ERROR") or led_resp.startswith("UNKNOWN")):
                 self.set_status(f"LED fout: {led_resp}", C_ERROR)
+            else:
+                # Arm throw-detection for the currently selected (green) bin only.
+                self._awaiting_throw_bin = bin_key
 
         # Overlay text
         display_label = bin_label(bin_key) if bin_key else label
@@ -1222,12 +1099,25 @@ class InferenceGUI:
             data = snap.get(key, {})
             txt = str(data.get("text", "onbekend"))
             full = bool(data.get("is_full", False))
+            threw_object = bool(data.get("threw_object", False))
             if txt == "n.v.t.":
                 lbl.config(text="niveau: n.v.t.", fg=C_SUBTEXT)
             elif full:
                 lbl.config(text=f"niveau: {txt}", fg=C_ERROR)
             else:
                 lbl.config(text=f"niveau: {txt}", fg=C_SUBTEXT)
+
+            # Only accept throw-in events for the currently selected (green) bin.
+            if (
+                threw_object
+                and self._awaiting_throw_bin is not None
+                and key == self._awaiting_throw_bin
+            ):
+                if self.led:
+                    self.led.send_command("idle")
+                self._highlight_bin(None)
+                self._awaiting_throw_bin = None
+                self.set_status(f"Inworp bevestigd in {bin_label(key)} – LEDs terug naar standaard", C_SUCCESS)
         self.root.after(1000, self._update_ultrasonic_ui)
 
     @staticmethod
@@ -1288,6 +1178,7 @@ class InferenceGUI:
         self.confidence_overlay.place_forget()
         self._last_bboxes = []
         self._highlight_bin(None)
+        self._awaiting_throw_bin = None
         if self.led:
             self.led.send_command("idle")
         self.set_status("Gereset", C_SUCCESS)
@@ -1379,6 +1270,14 @@ def get_args():
                    help="Print debug regels voor ultrasoonsensoren")
     p.add_argument("--ultra-debug-every-cycles", type=int, default=1,
                    help="Print elke N meetcycli (1 = elke cyclus)")
+    p.add_argument("--org-trig", type=int, default=None,
+                   help="BCM pin voor Organisch ultrasonic TRIG")
+    p.add_argument("--org-echo", type=int, default=None,
+                   help="BCM pin voor Organisch ultrasonic ECHO")
+    p.add_argument("--pmd-trig", type=int, default=None,
+                   help="BCM pin voor PMD ultrasonic TRIG")
+    p.add_argument("--pmd-echo", type=int, default=None,
+                   help="BCM pin voor PMD ultrasonic ECHO")
     p.add_argument("--ultra-only", action="store_true",
                    help="Start alleen ultrasoon monitor (geen GUI vereist)")
     p.add_argument("--ultra-runtime", type=int, default=0,
@@ -1386,9 +1285,26 @@ def get_args():
     return p.parse_args()
 
 
-def run_ultrasonic_debug_only(debug: bool, debug_every_cycles: int, runtime_s: int) -> None:
+def run_ultrasonic_debug_only(
+    debug: bool,
+    debug_every_cycles: int,
+    runtime_s: int,
+    org_trig: int | None = None,
+    org_echo: int | None = None,
+    pmd_trig: int | None = None,
+    pmd_echo: int | None = None,
+) -> None:
     print("[Ultrasoon] Ultra-only modus gestart")
-    monitor = UltrasonicMonitor(debug=debug, debug_every_cycles=debug_every_cycles)
+    sensor_overrides: dict[str, dict[str, int] | None] = {}
+    if org_trig is not None and org_echo is not None:
+        sensor_overrides["org"] = {"trig": org_trig, "echo": org_echo}
+    if pmd_trig is not None and pmd_echo is not None:
+        sensor_overrides["pmd"] = {"trig": pmd_trig, "echo": pmd_echo}
+    monitor = UltrasonicMonitor(
+        debug=debug,
+        debug_every_cycles=debug_every_cycles,
+        sensor_overrides=sensor_overrides,
+    )
     if not monitor.enabled:
         print("[Ultrasoon] GPIO niet beschikbaar")
         return
@@ -1408,11 +1324,19 @@ def run_ultrasonic_debug_only(debug: bool, debug_every_cycles: int, runtime_s: i
 
 if __name__ == "__main__":
     args   = get_args()
+    if (args.org_trig is None) ^ (args.org_echo is None):
+        raise SystemExit("Gebruik --org-trig en --org-echo samen, of geen van beide.")
+    if (args.pmd_trig is None) ^ (args.pmd_echo is None):
+        raise SystemExit("Gebruik --pmd-trig en --pmd-echo samen, of geen van beide.")
     if args.ultra_only:
         run_ultrasonic_debug_only(
             debug=args.ultra_debug,
             debug_every_cycles=args.ultra_debug_every_cycles,
             runtime_s=args.ultra_runtime,
+            org_trig=args.org_trig,
+            org_echo=args.org_echo,
+            pmd_trig=args.pmd_trig,
+            pmd_echo=args.pmd_echo,
         )
         raise SystemExit(0)
     config = DisplayConfig(
@@ -1422,6 +1346,10 @@ if __name__ == "__main__":
         det_threshold=args.threshold,
         ultra_debug=args.ultra_debug,
         ultra_debug_every_cycles=args.ultra_debug_every_cycles,
+        org_ultra_trig=args.org_trig,
+        org_ultra_echo=args.org_echo,
+        pmd_ultra_trig=args.pmd_trig,
+        pmd_ultra_echo=args.pmd_echo,
     )
     app = InferenceGUI(config)
     app.run()
