@@ -29,9 +29,9 @@ except Exception as exc:
 # ── Configuratie ─────────────────────────────────────────────────────────────
 # Pas deze aan op basis van het aantal leds per strip.
 # Huidige hardware:
-# - REST: 51
-# - KARTON: 38
-# - ORGANISCH: 51
+# - REST: 50
+# - KARTON: 37
+# - ORGANISCH: 50
 # - PMD: 51
 DEFAULT_BRIGHTNESS = float(os.getenv("LED_BRIGHTNESS", "0.25"))
 MAX_SUPPLY_CURRENT_A = float(os.getenv("LED_MAX_CURRENT_A", "5.0"))
@@ -45,9 +45,9 @@ PIN_MAP = {
 }
 
 DEFAULT_LED_COUNT_MAP = {
-    "rest": int(os.getenv("LED_COUNT_REST", "51")),
-    "karton": int(os.getenv("LED_COUNT_KARTON", "38")),
-    "organisch": int(os.getenv("LED_COUNT_ORGANISCH", "51")),
+    "rest": int(os.getenv("LED_COUNT_REST", "50")),
+    "karton": int(os.getenv("LED_COUNT_KARTON", "37")),
+    "organisch": int(os.getenv("LED_COUNT_ORGANISCH", "50")),
     "pmd": int(os.getenv("LED_COUNT_PMD", "51")),
 }
 
