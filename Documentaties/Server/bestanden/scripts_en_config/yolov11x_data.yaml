@@ -1,0 +1,11 @@
+path: /root/smart_bin_project
+train: /root/smart_bin_project/runs/strong_training/yolo_train_strong_balanced.txt
+val: /root/smart_bin_project/runs/strong_training/yolo_val_strong.txt
+
+nc: 5
+names:
+  0: Organisch
+  1: PMD
+  2: Papier
+  3: Restafval
+  4: Overige

@@ -1,0 +1,9 @@
+kaggle
+torch
+torchvision
+pandas
+pillow
+tqdm
+matplotlib
+onnx
+onnxruntime

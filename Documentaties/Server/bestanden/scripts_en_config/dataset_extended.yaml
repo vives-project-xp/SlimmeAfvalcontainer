@@ -1,0 +1,11 @@
+names:
+  0: Organisch
+  1: PMD
+  2: Papier
+  3: Restafval
+  4: Overige
+  5: Elektronica
+  6: Glas
+path: /root/smart_bin_project
+train: yolo_train.txt
+val: yolo_val.txt
