@@ -2,6 +2,24 @@
 
 Een intelligente afvalcontainer met camera-gebaseerde objectdetectie, LED-indicatie en ultrasoon sensordetectie.
 
+## Inhoudstafel
+
+| Onderdeel | Korte uitleg |
+|---|---|
+| [`Architectuur/`](Architectuur/) | Schema's en architectuurdocumenten van de oplossing. |
+| [`behuizingen/`](behuizingen/) | Bestanden en ontwerpen voor de fysieke behuizing. |
+| [`Code PI/`](Code%20PI/) | Hoofdcode voor de Raspberry Pi, inclusief GUI, LED-sturing en ultrasoon sensoren. |
+| [`Datasets/`](Datasets/) | Informatie en bestanden rond de datasets die gebruikt zijn voor training. |
+| [`Documentaties/`](Documentaties/) | Extra documentatie voor de Raspberry Pi en serveromgeving. |
+| [`Foto's/`](Foto's/) | Projectfoto's en visueel materiaal. |
+| [`pi_deploy_target96/`](pi_deploy_target96/) | Deploy-bestanden voor het target96-model op de Raspberry Pi. |
+| [`poster/`](poster/) | Poster- en presentatiemateriaal van het project. |
+| [`RaspberryPI5_Pinout/`](RaspberryPI5_Pinout/) | Pinout-informatie voor de Raspberry Pi 5. |
+| [`TestCodeC++/`](TestCodeC++/) | Testcode in C++ voor onderdelen van het systeem. |
+| [`inference_gui.service`](inference_gui.service) | Systemd-service om de inferentie-GUI automatisch te starten. |
+| [`start_garbage_gui.sh`](start_garbage_gui.sh) | Startscript voor de garbage detection GUI. |
+| [`test_uart.py`](test_uart.py) | Python-testscript voor UART-communicatie. |
+
 ## Projectbeschrijving
 
 Dit project implementeert een slimme afvalcontainer die:
@@ -134,11 +152,10 @@ pip install rfdetr supervision pillow numpy onnxruntime
 | Overige / Batterijen / … | Restafval (grijs) |
 | Restafval | Restafval (grijs) |
 
-## Datasets gebruikt voor training
+## Gebruikte foto's
 
-- [Custom Waste Classification Dataset](https://www.kaggle.com/datasets/wasifmahmood01/custom-waste-classification-dataset)
-- [TrashNet](https://www.kaggle.com/datasets/feyzazkefe/trashnet/data)
-- [Garbage Classification v2](https://www.kaggle.com/datasets/sumn2u/garbage-classification-v2)
+- Originele/normale foto's: [Smart Bin Original Images](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-original-images)
+- Crops voor het finale model: [Smart Bin Classifier Crops](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-classifier-crops)
 
 ## Troubleshooting
 
