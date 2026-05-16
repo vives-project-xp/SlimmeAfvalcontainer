@@ -287,7 +287,7 @@ def _find_rfdetr(model_path: str | None) -> str | None:
         if p.suffix == ".pth":
             candidates.append(p if p.is_absolute() else (script_dir / p).resolve())
     for d in [script_dir, script_dir / "AI", script_dir.parent / "Ai-model",
-              script_dir.parent / "pi_deploy_target96"]:
+              script_dir.parent / "Pi_deploy_target96"]:
         if d.exists():
             candidates += sorted(d.glob("*.pth"))
     for c in candidates:

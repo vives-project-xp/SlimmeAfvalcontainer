@@ -7,13 +7,13 @@ Een intelligente afvalcontainer met camera-gebaseerde objectdetectie, LED-indica
 | Onderdeel | Korte uitleg |
 |---|---|
 | [`Architectuur/`](Architectuur/) | Schema's en architectuurdocumenten van de oplossing. |
-| [`behuizingen/`](behuizingen/) | Bestanden en ontwerpen voor de fysieke behuizing. |
+| [`Behuizingen/`](Behuizingen/) | Bestanden en ontwerpen voor de fysieke behuizing. |
 | [`Code PI/`](Code%20PI/) | Hoofdcode voor de Raspberry Pi, inclusief GUI, LED-sturing en ultrasoon sensoren. |
 | [`Datasets/`](Datasets/) | Informatie en bestanden rond de datasets die gebruikt zijn voor training. |
 | [`Documentaties/`](Documentaties/) | Extra documentatie voor de Raspberry Pi en serveromgeving. |
 | [`Foto's/`](Foto's/) | Projectfoto's en visueel materiaal. |
-| [`pi_deploy_target96/`](pi_deploy_target96/) | Deploy-bestanden voor het target96-model op de Raspberry Pi. |
-| [`poster/`](poster/) | Poster- en presentatiemateriaal van het project. |
+| [`Pi_deploy_target96/`](Pi_deploy_target96/) | Deploy-bestanden voor het target96-model op de Raspberry Pi. |
+| [`SocialeMedia/Poster/`](SocialeMedia/Poster/) | Poster- en presentatiemateriaal van het project. |
 | [`RaspberryPI5_Pinout/`](RaspberryPI5_Pinout/) | Pinout-informatie voor de Raspberry Pi 5. |
 | [`TestCodeC++/`](TestCodeC++/) | Testcode in C++ voor onderdelen van het systeem. |
 | [`inference_gui.service`](inference_gui.service) | Systemd-service om de inferentie-GUI automatisch te starten. |

@@ -9,13 +9,13 @@ Deze map bevat:
 Vervang `<PI_USER>` en `<PI_IP>`:
 
 ```bash
-scp -r /root/rf-detr/pi_deploy_target96 <PI_USER>@<PI_IP>:~/
+scp -r /root/rf-detr/Pi_deploy_target96 <PI_USER>@<PI_IP>:~/
 ```
 
 ## 2) Op de Raspberry Pi: Python omgeving maken
 
 ```bash
-cd ~/pi_deploy_target96
+cd ~/Pi_deploy_target96
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
@@ -29,7 +29,7 @@ Opmerking:
 ## 3) Test inferentie op 1 afbeelding
 
 ```bash
-cd ~/pi_deploy_target96
+cd ~/Pi_deploy_target96
 source .venv/bin/activate
 python infer_rfdetr_pi.py \
   --model model_best_ema_target96.pth \

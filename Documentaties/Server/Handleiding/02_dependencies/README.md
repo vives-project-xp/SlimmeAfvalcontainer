@@ -41,7 +41,7 @@ pip install -r requirements.txt
 
 Bijhorend bestand:
 
-- [requirements.txt](../../bestanden/scripts_en_config/requirements.txt)
+- [requirements.txt](../../Bestanden/Scripts_en_config/requirements.txt)
 
 Installeer aanvullend wat de trainingsscripts nodig hebben:
 

@@ -32,7 +32,7 @@ Korte uitleg:
 
 Gebruik:
 
-[train_two_stage_crops.py](../../bestanden/scripts_en_config/train_two_stage_crops.py)
+[train_two_stage_crops.py](../../Bestanden/Scripts_en_config/train_two_stage_crops.py)
 
 Zet dit bestand in:
 
@@ -145,9 +145,9 @@ EPOCHS_STAGE1=60 EPOCHS_STAGE2=60 BATCH_SIZE=48 LEARNING_RATE=0.0005 python3 tra
 
 Na training:
 
-- [stage1_main.pth](../../bestanden/two_stage_training_outputs/stage1_main.pth)
-- [stage2_overige.pth](../../bestanden/two_stage_training_outputs/stage2_overige.pth)
-- [two_stage_metadata.json](../../bestanden/two_stage_training_outputs/two_stage_metadata.json)
+- [stage1_main.pth](../../Bestanden/two_stage_training_outputs/stage1_main.pth)
+- [stage2_overige.pth](../../Bestanden/two_stage_training_outputs/stage2_overige.pth)
+- [two_stage_metadata.json](../../Bestanden/two_stage_training_outputs/two_stage_metadata.json)
 
 Op de server:
 
@@ -173,7 +173,7 @@ De metadata bevat onder andere:
 
 Referentie:
 
-[two_stage_metadata.json](../../bestanden/huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
+[two_stage_metadata.json](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
 
 ## 5.9 Resultaten controleren
 

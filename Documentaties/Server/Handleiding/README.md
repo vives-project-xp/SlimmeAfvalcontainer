@@ -35,16 +35,16 @@ test11mei_light_crops/
 
 Een referentieversie van dat pakket staat in:
 
-[../bestanden/huidig_modelpakket_test11mei_light_crops](../bestanden/huidig_modelpakket_test11mei_light_crops/)
+[../Bestanden/Huidig_modelpakket_test11mei_light_crops](../Bestanden/Huidig_modelpakket_test11mei_light_crops/)
 
 ## Belangrijke bijhorende bestanden
 
-- [train_two_stage_crops.py](../bestanden/scripts_en_config/train_two_stage_crops.py)
-- [export_two_stage_onnx.py](../bestanden/scripts_en_config/export_two_stage_onnx.py)
-- [train_yolo_l.py](../bestanden/scripts_en_config/train_yolo_l.py)
-- [train_yolo_until_target.py](../bestanden/scripts_en_config/train_yolo_until_target.py)
-- [requirements.txt](../bestanden/scripts_en_config/requirements.txt)
-- [two_stage_metadata.json](../bestanden/huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
+- [train_two_stage_crops.py](../Bestanden/Scripts_en_config/train_two_stage_crops.py)
+- [export_two_stage_onnx.py](../Bestanden/Scripts_en_config/export_two_stage_onnx.py)
+- [train_yolo_l.py](../Bestanden/Scripts_en_config/train_yolo_l.py)
+- [train_yolo_until_target.py](../Bestanden/Scripts_en_config/train_yolo_until_target.py)
+- [requirements.txt](../Bestanden/Scripts_en_config/requirements.txt)
+- [two_stage_metadata.json](../Bestanden/Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
 
 ## Belangrijk uitgangspunt
 

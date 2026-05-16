@@ -35,11 +35,11 @@ dist/
 Thumbs.db
 
 # Models
-/home/kobe/SlimmeAfvalcontainer/pi_deploy_target96/model_best_ema_target96.pth
+/home/kobe/SlimmeAfvalcontainer/Pi_deploy_target96/model_best_ema_target96.pth
 
 # Captures
 Code PI/captures/
-pi_deploy_target96/captures/
+Pi_deploy_target96/captures/
 
 # Local model artifacts (do not push)
 Code PI/AI/*.onnx
@@ -48,6 +48,6 @@ Code PI/AI/*.bak_external
 Code PI/*.pth
 Code PI/*.onnx
 Code PI/*.hef
-pi_deploy_target96/*.pth
-pi_deploy_target96/*.onnx
-pi_deploy_target96/*.hef
+Pi_deploy_target96/*.pth
+Pi_deploy_target96/*.onnx
+Pi_deploy_target96/*.hef

@@ -20,7 +20,7 @@ algemeen.
 
 Voor exacte reproductie gebruik je de bestaande detector:
 
-[best_detector_used_for_crops.pt](../../bestanden/gebruikte_detector/best_detector_used_for_crops.pt)
+[best_detector_used_for_crops.pt](../../Bestanden/Gebruikte_detector/best_detector_used_for_crops.pt)
 
 Origineel serverpad:
 
@@ -34,8 +34,8 @@ Als je echt vanaf nul werkt, moet je deze detector eerst opnieuw trainen.
 
 Beschikbare scripts:
 
-- [train_yolo_l.py](../../bestanden/scripts_en_config/train_yolo_l.py)
-- [train_yolo_until_target.py](../../bestanden/scripts_en_config/train_yolo_until_target.py)
+- [train_yolo_l.py](../../Bestanden/Scripts_en_config/train_yolo_l.py)
+- [train_yolo_until_target.py](../../Bestanden/Scripts_en_config/train_yolo_until_target.py)
 
 `train_yolo_l.py` is eenvoudiger. `train_yolo_until_target.py` is uitgebreider
 en kan meerdere pogingen doen tot een doelmetric gehaald wordt.
@@ -144,7 +144,7 @@ Laat die naam staan tenzij je ook de code aanpast die dit bestand inlaadt.
 
 Referentie:
 
-[yolov8_detector.onnx](../../bestanden/huidig_modelpakket_test11mei_light_crops/yolov8_detector.onnx)
+[yolov8_detector.onnx](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/yolov8_detector.onnx)
 
 ## 4.7 Belangrijk voor reproduceerbaarheid
 

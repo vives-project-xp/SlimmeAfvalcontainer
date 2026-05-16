@@ -99,18 +99,18 @@ Verwachte basis:
 
 Kopieer de scripts uit deze documentatie naar de projectroot:
 
-- [train_two_stage_crops.py](../../bestanden/scripts_en_config/train_two_stage_crops.py)
-- [export_two_stage_onnx.py](../../bestanden/scripts_en_config/export_two_stage_onnx.py)
-- [train_two_stage.py](../../bestanden/scripts_en_config/train_two_stage.py)
-- [train_yolo_l.py](../../bestanden/scripts_en_config/train_yolo_l.py)
-- [train_yolo_until_target.py](../../bestanden/scripts_en_config/train_yolo_until_target.py)
-- [verzamel_pi_bestanden.sh](../../bestanden/scripts_en_config/verzamel_pi_bestanden.sh)
-- [requirements.txt](../../bestanden/scripts_en_config/requirements.txt)
+- [train_two_stage_crops.py](../../Bestanden/Scripts_en_config/train_two_stage_crops.py)
+- [export_two_stage_onnx.py](../../Bestanden/Scripts_en_config/export_two_stage_onnx.py)
+- [train_two_stage.py](../../Bestanden/Scripts_en_config/train_two_stage.py)
+- [train_yolo_l.py](../../Bestanden/Scripts_en_config/train_yolo_l.py)
+- [train_yolo_until_target.py](../../Bestanden/Scripts_en_config/train_yolo_until_target.py)
+- [verzamel_pi_bestanden.sh](../../Bestanden/Scripts_en_config/verzamel_pi_bestanden.sh)
+- [requirements.txt](../../Bestanden/Scripts_en_config/requirements.txt)
 
 Op een lokale machine kan dat bijvoorbeeld met `scp`:
 
 ```bash
-scp bestanden/scripts_en_config/* root@<IP>:/root/smart_bin_project/
+scp Bestanden/Scripts_en_config/* root@<IP>:/root/smart_bin_project/
 ```
 
 Of via GitHub: clone de repository en zorg dat de scripts in

@@ -27,14 +27,14 @@ pi_inference_two_stage.py
 
 Vergelijk met de referentie:
 
-[huidig_modelpakket_test11mei_light_crops](../../bestanden/huidig_modelpakket_test11mei_light_crops/)
+[Huidig_modelpakket_test11mei_light_crops](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/)
 
 ## 7.2 Manifest gebruiken
 
 Gebruik:
 
-- [MANIFEST.txt](../../bestanden/MANIFEST.txt)
-- [LOCAL_MANIFEST.txt](../../bestanden/LOCAL_MANIFEST.txt)
+- [MANIFEST.txt](../../Bestanden/MANIFEST.txt)
+- [LOCAL_MANIFEST.txt](../../Bestanden/LOCAL_MANIFEST.txt)
 
 `MANIFEST.txt` is de serverlijst. `LOCAL_MANIFEST.txt` toont wat lokaal in deze
 workspace aanwezig was toen de documentatie werd gemaakt.
@@ -43,7 +43,7 @@ workspace aanwezig was toen de documentatie werd gemaakt.
 
 Open:
 
-[two_stage_metadata.json](../../bestanden/huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
+[two_stage_metadata.json](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
 
 Controleer:
 
@@ -62,7 +62,7 @@ Aanbevolen:
 ```text
 documentatie/
 |-- README.md
-|-- handleiding/
+|-- Handleiding/
 |   |-- README.md
 |   |-- 01_vm_en_project/
 |   |-- 02_dependencies/
@@ -71,13 +71,13 @@ documentatie/
 |   |-- 05_crop_classifier/
 |   |-- 06_export_modelpakket/
 |   `-- 07_controle_en_github/
-`-- bestanden/
+`-- Bestanden/
     |-- README.md
     |-- MANIFEST.txt
-    |-- scripts_en_config/
-    |-- huidig_modelpakket_test11mei_light_crops/
+    |-- Scripts_en_config/
+    |-- Huidig_modelpakket_test11mei_light_crops/
     |-- two_stage_training_outputs/
-    `-- gebruikte_detector/
+    `-- Gebruikte_detector/
 ```
 
 ## 7.5 Grote bestanden
@@ -85,7 +85,7 @@ documentatie/
 Gewone GitHub commits hebben een harde limiet rond 100 MB per bestand. Dit is
 een probleem voor:
 
-[best_detector_used_for_crops.pt](../../bestanden/gebruikte_detector/best_detector_used_for_crops.pt)
+[best_detector_used_for_crops.pt](../../Bestanden/Gebruikte_detector/best_detector_used_for_crops.pt)
 
 Dit bestand is ongeveer 350 MB.
 
@@ -102,11 +102,11 @@ serverpad behouden en documenteren
 
 Deze bestanden zijn veel geschikter om gewoon mee te nemen:
 
-- [train_two_stage_crops.py](../../bestanden/scripts_en_config/train_two_stage_crops.py)
-- [export_two_stage_onnx.py](../../bestanden/scripts_en_config/export_two_stage_onnx.py)
-- [requirements.txt](../../bestanden/scripts_en_config/requirements.txt)
-- [dataset.yaml](../../bestanden/scripts_en_config/dataset.yaml)
-- [two_stage_metadata.json](../../bestanden/huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
+- [train_two_stage_crops.py](../../Bestanden/Scripts_en_config/train_two_stage_crops.py)
+- [export_two_stage_onnx.py](../../Bestanden/Scripts_en_config/export_two_stage_onnx.py)
+- [requirements.txt](../../Bestanden/Scripts_en_config/requirements.txt)
+- [dataset.yaml](../../Bestanden/Scripts_en_config/dataset.yaml)
+- [two_stage_metadata.json](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
 
 Ook kleinere ONNX/modelpakketbestanden kunnen afhankelijk van jullie repo-afspraken
 mee, maar check altijd de bestandsgrootte.

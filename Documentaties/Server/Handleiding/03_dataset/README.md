@@ -155,9 +155,9 @@ subklasse-herkenning gebeurt later met de two-stage classifier.
 
 Voor YOLO heb je een YAML nodig. Voorbeelden:
 
-- [dataset.yaml](../../bestanden/scripts_en_config/dataset.yaml)
-- [dataset_extended.yaml](../../bestanden/scripts_en_config/dataset_extended.yaml)
-- [yolov11x_data.yaml](../../bestanden/scripts_en_config/yolov11x_data.yaml)
+- [dataset.yaml](../../Bestanden/Scripts_en_config/dataset.yaml)
+- [dataset_extended.yaml](../../Bestanden/Scripts_en_config/dataset_extended.yaml)
+- [yolov11x_data.yaml](../../Bestanden/Scripts_en_config/yolov11x_data.yaml)
 
 Een eenvoudige `dataset.yaml` ziet er zo uit:
 

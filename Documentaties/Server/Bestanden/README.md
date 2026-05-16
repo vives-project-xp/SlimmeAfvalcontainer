@@ -6,35 +6,35 @@ De README's in de andere mappen leggen uit hoe je ze gebruikt en opnieuw maakt.
 ## Structuur
 
 ```text
-bestanden/
+Bestanden/
 |-- README.md
 |-- MANIFEST.txt
-|-- huidig_modelpakket_test11mei_light_crops/
+|-- Huidig_modelpakket_test11mei_light_crops/
 |-- two_stage_training_outputs/
-|-- gebruikte_detector/
-`-- scripts_en_config/
+|-- Gebruikte_detector/
+`-- Scripts_en_config/
 ```
 
-## `huidig_modelpakket_test11mei_light_crops`
+## `Huidig_modelpakket_test11mei_light_crops`
 
 Dit is het huidige modelpakket dat als referentie gebruikt wordt.
 
 Belangrijkste bestanden:
 
-- [best.pt](huidig_modelpakket_test11mei_light_crops/best.pt)
-- [yolov8_detector.onnx](huidig_modelpakket_test11mei_light_crops/yolov8_detector.onnx)
-- [stage1_main.onnx](huidig_modelpakket_test11mei_light_crops/stage1_main.onnx)
-- [stage1_main.onnx.data](huidig_modelpakket_test11mei_light_crops/stage1_main.onnx.data)
-- [stage2_overige.onnx](huidig_modelpakket_test11mei_light_crops/stage2_overige.onnx)
-- [stage2_overige.onnx.data](huidig_modelpakket_test11mei_light_crops/stage2_overige.onnx.data)
-- [two_stage_metadata.json](huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
-- [classifier.py](huidig_modelpakket_test11mei_light_crops/classifier.py)
-- [detector.py](huidig_modelpakket_test11mei_light_crops/detector.py)
-- [main.py](huidig_modelpakket_test11mei_light_crops/main.py)
-- [pi_inference_two_stage.py](huidig_modelpakket_test11mei_light_crops/pi_inference_two_stage.py)
-- [hailo_two_stage_main.py](huidig_modelpakket_test11mei_light_crops/hailo_two_stage_main.py)
-- [vul_detector_na_training.sh](huidig_modelpakket_test11mei_light_crops/vul_detector_na_training.sh)
-- [LEES_MIJ_PI5_HAILO_TEST11MEI_LIGHT_CROPS.md](huidig_modelpakket_test11mei_light_crops/LEES_MIJ_PI5_HAILO_TEST11MEI_LIGHT_CROPS.md)
+- [best.pt](Huidig_modelpakket_test11mei_light_crops/best.pt)
+- [yolov8_detector.onnx](Huidig_modelpakket_test11mei_light_crops/yolov8_detector.onnx)
+- [stage1_main.onnx](Huidig_modelpakket_test11mei_light_crops/stage1_main.onnx)
+- [stage1_main.onnx.data](Huidig_modelpakket_test11mei_light_crops/stage1_main.onnx.data)
+- [stage2_overige.onnx](Huidig_modelpakket_test11mei_light_crops/stage2_overige.onnx)
+- [stage2_overige.onnx.data](Huidig_modelpakket_test11mei_light_crops/stage2_overige.onnx.data)
+- [two_stage_metadata.json](Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
+- [classifier.py](Huidig_modelpakket_test11mei_light_crops/classifier.py)
+- [detector.py](Huidig_modelpakket_test11mei_light_crops/detector.py)
+- [main.py](Huidig_modelpakket_test11mei_light_crops/main.py)
+- [pi_inference_two_stage.py](Huidig_modelpakket_test11mei_light_crops/pi_inference_two_stage.py)
+- [hailo_two_stage_main.py](Huidig_modelpakket_test11mei_light_crops/hailo_two_stage_main.py)
+- [vul_detector_na_training.sh](Huidig_modelpakket_test11mei_light_crops/vul_detector_na_training.sh)
+- [LEES_MIJ_PI5_HAILO_TEST11MEI_LIGHT_CROPS.md](Huidig_modelpakket_test11mei_light_crops/LEES_MIJ_PI5_HAILO_TEST11MEI_LIGHT_CROPS.md)
 
 Dit komt overeen met de servermap:
 
@@ -66,11 +66,11 @@ Deze komen van:
 /root/smart_bin_project/models/two_stage_crops
 ```
 
-## `gebruikte_detector`
+## `Gebruikte_detector`
 
 Deze map bevat de detector die gebruikt werd om de cropdataset te bouwen:
 
-- [best_detector_used_for_crops.pt](gebruikte_detector/best_detector_used_for_crops.pt)
+- [best_detector_used_for_crops.pt](Gebruikte_detector/best_detector_used_for_crops.pt)
 
 Origineel serverpad:
 
@@ -82,23 +82,23 @@ Let op: dit bestand is ongeveer 350 MB. Voor GitHub moet dit via Git LFS,
 GitHub Releases of externe opslag. Een normale GitHub commit accepteert geen
 bestanden boven 100 MB.
 
-## `scripts_en_config`
+## `Scripts_en_config`
 
 Deze map bevat de scripts en configuratiebestanden die nodig zijn om training en
 export opnieuw te doen.
 
 Belangrijkste bestanden:
 
-- [train_two_stage_crops.py](scripts_en_config/train_two_stage_crops.py)
-- [export_two_stage_onnx.py](scripts_en_config/export_two_stage_onnx.py)
-- [train_two_stage.py](scripts_en_config/train_two_stage.py)
-- [train_yolo_l.py](scripts_en_config/train_yolo_l.py)
-- [train_yolo_until_target.py](scripts_en_config/train_yolo_until_target.py)
-- [verzamel_pi_bestanden.sh](scripts_en_config/verzamel_pi_bestanden.sh)
-- [requirements.txt](scripts_en_config/requirements.txt)
-- [dataset.yaml](scripts_en_config/dataset.yaml)
-- [dataset_extended.yaml](scripts_en_config/dataset_extended.yaml)
-- [yolov11x_data.yaml](scripts_en_config/yolov11x_data.yaml)
+- [train_two_stage_crops.py](Scripts_en_config/train_two_stage_crops.py)
+- [export_two_stage_onnx.py](Scripts_en_config/export_two_stage_onnx.py)
+- [train_two_stage.py](Scripts_en_config/train_two_stage.py)
+- [train_yolo_l.py](Scripts_en_config/train_yolo_l.py)
+- [train_yolo_until_target.py](Scripts_en_config/train_yolo_until_target.py)
+- [verzamel_pi_bestanden.sh](Scripts_en_config/verzamel_pi_bestanden.sh)
+- [requirements.txt](Scripts_en_config/requirements.txt)
+- [dataset.yaml](Scripts_en_config/dataset.yaml)
+- [dataset_extended.yaml](Scripts_en_config/dataset_extended.yaml)
+- [yolov11x_data.yaml](Scripts_en_config/yolov11x_data.yaml)
 
 ## Manifest
 

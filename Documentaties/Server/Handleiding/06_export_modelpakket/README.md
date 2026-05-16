@@ -19,7 +19,7 @@ alleen over YOLOv8 te spreken.
 
 Script:
 
-[export_two_stage_onnx.py](../../bestanden/scripts_en_config/export_two_stage_onnx.py)
+[export_two_stage_onnx.py](../../Bestanden/Scripts_en_config/export_two_stage_onnx.py)
 
 Run:
 
@@ -39,10 +39,10 @@ Input:
 
 Output:
 
-- [stage1_main.onnx](../../bestanden/two_stage_training_outputs/stage1_main.onnx)
-- [stage1_main.onnx.data](../../bestanden/two_stage_training_outputs/stage1_main.onnx.data)
-- [stage2_overige.onnx](../../bestanden/two_stage_training_outputs/stage2_overige.onnx)
-- [stage2_overige.onnx.data](../../bestanden/two_stage_training_outputs/stage2_overige.onnx.data)
+- [stage1_main.onnx](../../Bestanden/two_stage_training_outputs/stage1_main.onnx)
+- [stage1_main.onnx.data](../../Bestanden/two_stage_training_outputs/stage1_main.onnx.data)
+- [stage2_overige.onnx](../../Bestanden/two_stage_training_outputs/stage2_overige.onnx)
+- [stage2_overige.onnx.data](../../Bestanden/two_stage_training_outputs/stage2_overige.onnx.data)
 
 Let op: de `.onnx.data` bestanden zijn noodzakelijk.
 
@@ -62,7 +62,7 @@ Gebruik die naam omdat de bestaande scripts dit bestand zo verwachten.
 
 Referentie:
 
-[yolov8_detector.onnx](../../bestanden/huidig_modelpakket_test11mei_light_crops/yolov8_detector.onnx)
+[yolov8_detector.onnx](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/yolov8_detector.onnx)
 
 ## 6.3 Modelpakketmap maken
 
@@ -100,27 +100,27 @@ cp /root/smart_bin_project/pi_inference_two_stage.py /root/smart_bin_project/tes
 
 Minimaal:
 
-- [best.pt](../../bestanden/huidig_modelpakket_test11mei_light_crops/best.pt)
-- [yolov8_detector.onnx](../../bestanden/huidig_modelpakket_test11mei_light_crops/yolov8_detector.onnx)
-- [stage1_main.onnx](../../bestanden/huidig_modelpakket_test11mei_light_crops/stage1_main.onnx)
-- [stage1_main.onnx.data](../../bestanden/huidig_modelpakket_test11mei_light_crops/stage1_main.onnx.data)
-- [stage2_overige.onnx](../../bestanden/huidig_modelpakket_test11mei_light_crops/stage2_overige.onnx)
-- [stage2_overige.onnx.data](../../bestanden/huidig_modelpakket_test11mei_light_crops/stage2_overige.onnx.data)
-- [two_stage_metadata.json](../../bestanden/huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
-- [classifier.py](../../bestanden/huidig_modelpakket_test11mei_light_crops/classifier.py)
-- [detector.py](../../bestanden/huidig_modelpakket_test11mei_light_crops/detector.py)
-- [main.py](../../bestanden/huidig_modelpakket_test11mei_light_crops/main.py)
-- [pi_inference_two_stage.py](../../bestanden/huidig_modelpakket_test11mei_light_crops/pi_inference_two_stage.py)
+- [best.pt](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/best.pt)
+- [yolov8_detector.onnx](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/yolov8_detector.onnx)
+- [stage1_main.onnx](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/stage1_main.onnx)
+- [stage1_main.onnx.data](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/stage1_main.onnx.data)
+- [stage2_overige.onnx](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/stage2_overige.onnx)
+- [stage2_overige.onnx.data](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/stage2_overige.onnx.data)
+- [two_stage_metadata.json](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
+- [classifier.py](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/classifier.py)
+- [detector.py](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/detector.py)
+- [main.py](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/main.py)
+- [pi_inference_two_stage.py](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/pi_inference_two_stage.py)
 
 Optioneel of voor latere Pi/Hailo flow:
 
-- [hailo_two_stage_main.py](../../bestanden/huidig_modelpakket_test11mei_light_crops/hailo_two_stage_main.py)
-- [vul_detector_na_training.sh](../../bestanden/huidig_modelpakket_test11mei_light_crops/vul_detector_na_training.sh)
+- [hailo_two_stage_main.py](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/hailo_two_stage_main.py)
+- [vul_detector_na_training.sh](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/vul_detector_na_training.sh)
 
 ## 6.5 Verzamelscript
 
 Er is ook een bestaand verzamelscript:
 
-[verzamel_pi_bestanden.sh](../../bestanden/scripts_en_config/verzamel_pi_bestanden.sh)
+[verzamel_pi_bestanden.sh](../../Bestanden/Scripts_en_config/verzamel_pi_bestanden.sh)
 
 Gebruik dit alleen als de paden in het script overeenkomen met jouw project.
