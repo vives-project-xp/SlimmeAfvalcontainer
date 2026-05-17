@@ -1,7 +1,6 @@
-# 6. Exporteren en modelpakket maken
+﻿# 6. Exporteren en modelpakket maken
 
-Na training moeten de modellen naar ONNX en moeten alle nodige bestanden samen
-in een pakketmap komen.
+Na training moeten de modellen naar ONNX en moeten alle nodige bestanden samen in een pakketmap komen.
 
 Korte uitleg:
 
@@ -10,10 +9,7 @@ Korte uitleg:
 - `.onnx`: exportformaat om modellen makkelijker buiten PyTorch te gebruiken.
 - `.onnx.data`: extra databestand dat bij sommige ONNX exports hoort.
 
-Opmerking: de detectorexport heet in het huidige pakket
-`yolov8_detector.onnx`. Dat is een bestaande/legacy bestandsnaam. De handleiding
-bedoelt hiermee de YOLO-detector export, niet noodzakelijk een algemene keuze om
-alleen over YOLOv8 te spreken.
+Opmerking: de detectorexport heet in het huidige pakket `yolov8_detector.onnx`. Dat is een bestaande bestandsnaam. De handleiding bedoelt hiermee de YOLO-detector export, niet noodzakelijk een algemene keuze om alleen over YOLOv8 te spreken.
 
 ## 6.1 Classifier exporteren
 
@@ -37,12 +33,10 @@ Input:
 /root/smart_bin_project/models/two_stage_crops/two_stage_metadata.json
 ```
 
-Output:
+Referentie van de outputs:
 
-- [stage1_main.onnx](../../Bestanden/two_stage_training_outputs/stage1_main.onnx)
-- [stage1_main.onnx.data](../../Bestanden/two_stage_training_outputs/stage1_main.onnx.data)
-- [stage2_overige.onnx](../../Bestanden/two_stage_training_outputs/stage2_overige.onnx)
-- [stage2_overige.onnx.data](../../Bestanden/two_stage_training_outputs/stage2_overige.onnx.data)
+- [Smart Bin Model Artifacts](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-model-artifacts)
+- [two_stage_training_outputs/README.md](../../Bestanden/two_stage_training_outputs/README.md)
 
 Let op: de `.onnx.data` bestanden zijn noodzakelijk.
 
@@ -87,15 +81,6 @@ cp /root/smart_bin_project/runs/detect_strong/garbage_detector_l_fallback_aware_
 cp /root/smart_bin_project/runs/detect_strong/garbage_detector_l_fallback_aware_768-6/weights/best.onnx /root/smart_bin_project/test_reproductie_light_crops/yolov8_detector.onnx
 ```
 
-Kopieer inference/helpers:
-
-```bash
-cp /root/smart_bin_project/classifier.py /root/smart_bin_project/test_reproductie_light_crops/
-cp /root/smart_bin_project/detector.py /root/smart_bin_project/test_reproductie_light_crops/
-cp /root/smart_bin_project/main.py /root/smart_bin_project/test_reproductie_light_crops/
-cp /root/smart_bin_project/pi_inference_two_stage.py /root/smart_bin_project/test_reproductie_light_crops/
-```
-
 ## 6.4 Compleet pakket
 
 Minimaal:
@@ -112,15 +97,12 @@ Minimaal:
 - [main.py](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/main.py)
 - [pi_inference_two_stage.py](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/pi_inference_two_stage.py)
 
-Optioneel of voor latere Pi/Hailo flow:
+Voor de volledige trainingsoutputs gebruik je daarnaast:
 
-- [hailo_two_stage_main.py](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/hailo_two_stage_main.py)
-- [vul_detector_na_training.sh](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/vul_detector_na_training.sh)
+- [Smart Bin Model Artifacts](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-model-artifacts)
 
 ## 6.5 Verzamelscript
 
 Er is ook een bestaand verzamelscript:
 
 [verzamel_pi_bestanden.sh](../../Bestanden/Scripts_en_config/verzamel_pi_bestanden.sh)
-
-Gebruik dit alleen als de paden in het script overeenkomen met jouw project.

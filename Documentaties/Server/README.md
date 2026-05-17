@@ -1,10 +1,8 @@
-# Smart Bin modeltraining documentatie
+﻿# Smart Bin modeltraining documentatie
 
-Deze map bevat de documentatie en bestanden om het huidige smart-bin
-trainingsresultaat serverkant te begrijpen en opnieuw te maken.
+Deze map bevat de documentatie en bestanden om het huidige smart-bin trainingsresultaat serverkant te begrijpen en opnieuw te maken.
 
-Het gaat hier over de training en export van de modellen, niet over de installatie
-op de Raspberry Pi zelf.
+Het gaat hier over de training en export van de modellen, niet over de installatie op de Raspberry Pi zelf.
 
 ## Inhoud
 
@@ -23,6 +21,7 @@ documentatie/
 `-- Bestanden/
     |-- README.md
     |-- MANIFEST.txt
+    |-- LOCAL_MANIFEST.txt
     |-- Huidig_modelpakket_test11mei_light_crops/
     |-- two_stage_training_outputs/
     |-- Gebruikte_detector/
@@ -31,10 +30,8 @@ documentatie/
 
 ## Waarvoor dient deze map?
 
-- [Handleiding/](Handleiding/README.md) legt stap voor stap uit hoe je de
-  dataset, detector, cropdataset, two-stage classifier en exports opnieuw maakt.
-- [Bestanden/](Bestanden/README.md) bevat de echte modelbestanden, scripts,
-  configs en metadata die bij het huidige resultaat horen.
+- [Handleiding/](Handleiding/README.md) legt stap voor stap uit hoe je de dataset, detector, cropdataset, two-stage classifier en exports opnieuw maakt.
+- [Bestanden/](Bestanden/README.md) bevat de echte referentiebestanden, scripts, configs en metadata die bij het huidige resultaat horen.
 
 ## Huidig referentiemodel
 
@@ -53,9 +50,8 @@ In deze documentatiemap staat dat onder:
 1. Lees [Handleiding/README.md](Handleiding/README.md).
 2. Begin vanaf nul met [01_vm_en_project](Handleiding/01_vm_en_project/README.md).
 3. Controleer [Bestanden/README.md](Bestanden/README.md).
-4. Gebruik [Bestanden/MANIFEST.txt](Bestanden/MANIFEST.txt) om te controleren
-   welke artifacts aanwezig zijn.
-5. Voor je presentatie: lees [PRESENTATIE.md](PRESENTATIE.md).
+4. Gebruik [Bestanden/MANIFEST.txt](Bestanden/MANIFEST.txt) om te zien welke artifacts bij het referentieresultaat horen.
+5. Controleer [Bestanden/LOCAL_MANIFEST.txt](Bestanden/LOCAL_MANIFEST.txt) voor de GitHub-versie van deze map.
 
 ## Handleidingen per onderdeel
 
@@ -67,30 +63,31 @@ In deze documentatiemap staat dat onder:
 - [Exporteren en modelpakket maken](Handleiding/06_export_modelpakket/README.md)
 - [Controle, GitHub en grote bestanden](Handleiding/07_controle_en_github/README.md)
 
-## Snelle links naar belangrijke bestanden
+## Snelle links naar belangrijke bestanden en downloads
 
 - Finale cropdataset op Kaggle: [Smart Bin Classifier Crops](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-classifier-crops)
 - Originele foto's op Kaggle: [Smart Bin Original Images](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-original-images)
+- Zware model-artifacts op Kaggle: [Smart Bin Model Artifacts](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-model-artifacts)
 - Huidige metadata: [two_stage_metadata.json](Bestanden/Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
-- Huidige detector: [best.pt](Bestanden/Huidig_modelpakket_test11mei_light_crops/best.pt)
+- Huidige detector in het pakket: [best.pt](Bestanden/Huidig_modelpakket_test11mei_light_crops/best.pt)
+- Detector gebruikt om crops te bouwen: [Gebruikte_detector/README.md](Bestanden/Gebruikte_detector/README.md)
+- Two-stage trainingsoutputs: [two_stage_training_outputs/README.md](Bestanden/two_stage_training_outputs/README.md)
 - Detector ONNX: [yolov8_detector.onnx](Bestanden/Huidig_modelpakket_test11mei_light_crops/yolov8_detector.onnx)
 - Stage 1 ONNX: [stage1_main.onnx](Bestanden/Huidig_modelpakket_test11mei_light_crops/stage1_main.onnx)
 - Stage 2 ONNX: [stage2_overige.onnx](Bestanden/Huidig_modelpakket_test11mei_light_crops/stage2_overige.onnx)
 - Trainingsscript crops: [train_two_stage_crops.py](Bestanden/Scripts_en_config/train_two_stage_crops.py)
 - Exportscript ONNX: [export_two_stage_onnx.py](Bestanden/Scripts_en_config/export_two_stage_onnx.py)
 - Requirements: [requirements.txt](Bestanden/Scripts_en_config/requirements.txt)
-- Presentatie-info: [PRESENTATIE.md](PRESENTATIE.md)
 
-Opmerking: `yolov8_detector.onnx` is de bestandsnaam die in het huidige pakket
-gebruikt wordt. In de uitleg noemen we dit gewoon de YOLO-detector. Er staan ook
-YOLOv11-runs op de VM, maar de metadata van het huidige finale pakket verwijst
-naar de detectorrun `garbage_detector_l_fallback_aware_768-6`.
+Opmerking: `yolov8_detector.onnx` is de bestandsnaam die in het huidige pakket gebruikt wordt. In de uitleg noemen we dit gewoon de YOLO-detector. Er staan ook YOLOv11-runs op de VM, maar de metadata van het huidige finale pakket verwijst naar de detectorrun `garbage_detector_l_fallback_aware_768-6`.
 
 ## Belangrijke GitHub-opmerking
 
-Sommige bestanden zijn groot. Vooral:
+Deze repo bevat bewust niet alle zware trainingsbestanden als gewone Git-bestanden.
 
-[Bestanden/Gebruikte_detector/best_detector_used_for_crops.pt](Bestanden/Gebruikte_detector/best_detector_used_for_crops.pt)
+De gekozen verdeling is:
 
-Dat bestand is ongeveer 350 MB en past niet in een normale GitHub commit. Gebruik
-hiervoor Git LFS, een GitHub Release, of externe opslag met een downloadlink.
+- GitHub voor code, documentatie, scripts, configs en het compacte referentiepakket
+- Kaggle voor originele foto's, crops en zware model-artifacts
+
+Daardoor blijven de links werkbaar en kan het project toch volledig opnieuw opgebouwd worden.

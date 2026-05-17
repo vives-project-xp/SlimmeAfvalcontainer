@@ -1,6 +1,7 @@
-# Bestanden
+﻿# Bestanden
 
-Deze map bevat de echte bestanden die horen bij het huidige trainingsresultaat.
+Deze map bevat de referentiebestanden die horen bij het huidige trainingsresultaat.
+
 De README's in de andere mappen leggen uit hoe je ze gebruikt en opnieuw maakt.
 
 ## Structuur
@@ -9,11 +10,24 @@ De README's in de andere mappen leggen uit hoe je ze gebruikt en opnieuw maakt.
 Bestanden/
 |-- README.md
 |-- MANIFEST.txt
+|-- LOCAL_MANIFEST.txt
 |-- Huidig_modelpakket_test11mei_light_crops/
 |-- two_stage_training_outputs/
 |-- Gebruikte_detector/
 `-- Scripts_en_config/
 ```
+
+## Wat staat lokaal in GitHub?
+
+In deze repo houden we vooral bij:
+
+- het compacte huidige modelpakket
+- scripts en configuratie
+- manifesten en documentatie
+
+De zwaardere trainingsbestanden staan bewust op Kaggle:
+
+[Smart Bin Model Artifacts](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-model-artifacts)
 
 ## `Huidig_modelpakket_test11mei_light_crops`
 
@@ -48,19 +62,14 @@ niet zomaar, want scripts kunnen exact deze naam verwachten.
 
 ## `two_stage_training_outputs`
 
-Dit zijn de outputs van de two-stage classifiertraining.
+Deze map bevat in GitHub alleen uitleg en verwijzingen.
 
-Belangrijkste bestanden:
+De echte trainingsoutputs staan op Kaggle:
 
-- [stage1_main.pth](two_stage_training_outputs/stage1_main.pth)
-- [stage2_overige.pth](two_stage_training_outputs/stage2_overige.pth)
-- [stage1_main.onnx](two_stage_training_outputs/stage1_main.onnx)
-- [stage1_main.onnx.data](two_stage_training_outputs/stage1_main.onnx.data)
-- [stage2_overige.onnx](two_stage_training_outputs/stage2_overige.onnx)
-- [stage2_overige.onnx.data](two_stage_training_outputs/stage2_overige.onnx.data)
-- [two_stage_metadata.json](two_stage_training_outputs/two_stage_metadata.json)
+- [Smart Bin Model Artifacts](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-model-artifacts)
+- [two_stage_training_outputs/README.md](two_stage_training_outputs/README.md)
 
-Deze komen van:
+Die komen van:
 
 ```text
 /root/smart_bin_project/models/two_stage_crops
@@ -68,9 +77,12 @@ Deze komen van:
 
 ## `Gebruikte_detector`
 
-Deze map bevat de detector die gebruikt werd om de cropdataset te bouwen:
+Deze map bevat in GitHub alleen uitleg en verwijzingen.
 
-- [best_detector_used_for_crops.pt](Gebruikte_detector/best_detector_used_for_crops.pt)
+De detector die gebruikt werd om de cropdataset te bouwen staat op Kaggle:
+
+- [Smart Bin Model Artifacts](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-model-artifacts)
+- [Gebruikte_detector/README.md](Gebruikte_detector/README.md)
 
 Origineel serverpad:
 
@@ -78,14 +90,9 @@ Origineel serverpad:
 /root/smart_bin_project/runs/detect_strong/garbage_detector_l_fallback_aware_768-6/weights/best.pt
 ```
 
-Let op: dit bestand is ongeveer 350 MB. Voor GitHub moet dit via Git LFS,
-GitHub Releases of externe opslag. Een normale GitHub commit accepteert geen
-bestanden boven 100 MB.
-
 ## `Scripts_en_config`
 
-Deze map bevat de scripts en configuratiebestanden die nodig zijn om training en
-export opnieuw te doen.
+Deze map bevat de scripts en configuratiebestanden die nodig zijn om training en export opnieuw te doen.
 
 Belangrijkste bestanden:
 
@@ -102,10 +109,6 @@ Belangrijkste bestanden:
 
 ## Manifest
 
-[MANIFEST.txt](MANIFEST.txt) bevat een lijst van alle bestanden in deze map zoals
-ze op de server geplaatst zijn.
+[MANIFEST.txt](MANIFEST.txt) bevat een lijst van alle bestanden in deze map zoals ze op de server geplaatst zijn.
 
-[LOCAL_MANIFEST.txt](LOCAL_MANIFEST.txt) bevat de lokale status van de bestanden
-in deze workspace.
-
-Gebruik dit om te controleren of een lokale of GitHub-kopie compleet is.
+[LOCAL_MANIFEST.txt](LOCAL_MANIFEST.txt) beschrijft welke bestanden bewust lokaal in GitHub staan en welke via Kaggle gedownload moeten worden.

@@ -1,4 +1,4 @@
-# Slimme Afvalcontainer
+﻿# Slimme Afvalcontainer
 
 Een intelligente afvalcontainer met camera-gebaseerde objectdetectie, LED-indicatie en ultrasoon sensordetectie.
 
@@ -9,9 +9,8 @@ Een intelligente afvalcontainer met camera-gebaseerde objectdetectie, LED-indica
 | [`Architectuur/`](Architectuur/) | Schema's en architectuurdocumenten van de oplossing. |
 | [`Behuizingen/`](Behuizingen/) | Bestanden en ontwerpen voor de fysieke behuizing. |
 | [`Code PI/`](Code%20PI/) | Hoofdcode voor de Raspberry Pi, inclusief GUI, LED-sturing en ultrasoon sensoren. |
-| [`Datasets/`](Datasets/) | Informatie en bestanden rond de datasets die gebruikt zijn voor training. |
+| [`Datasets/`](Datasets/) | Informatie en links naar de datasets en model-artifacts op Kaggle. |
 | [`Documentaties/`](Documentaties/) | Extra documentatie voor de Raspberry Pi en serveromgeving. |
-| [`Foto's/`](Foto's/) | Projectfoto's en visueel materiaal. |
 | [`Pi_deploy_target96/`](Pi_deploy_target96/) | Deploy-bestanden voor het target96-model op de Raspberry Pi. |
 | [`SocialeMedia/Poster/`](SocialeMedia/Poster/) | Poster- en presentatiemateriaal van het project. |
 | [`RaspberryPI5_Pinout/`](RaspberryPI5_Pinout/) | Pinout-informatie voor de Raspberry Pi 5. |
@@ -24,7 +23,7 @@ Een intelligente afvalcontainer met camera-gebaseerde objectdetectie, LED-indica
 
 Dit project implementeert een slimme afvalcontainer die:
 
-- **Automatisch afvaltype detecteert** via camera en AI-objectdetectie (RF-DETR)
+- **Automatisch afvaltype detecteert** via camera en AI-objectdetectie
 - **Visueel aanduidt** welke container gebruikt moet worden met NeoPixel LED's
 - **Controleert of afval gevallen is** met ultrasoon sensoren
 - **Versnelde inferentie** ondersteunt via de Hailo AI Hat+
@@ -39,178 +38,53 @@ Dit project implementeert een slimme afvalcontainer die:
 | NeoPixel LED-strip | Visuele container-indicatie |
 | Ultrasoon sensoren (HC-SR04) | Afvalniveaudetectie |
 
-## Software – GUI starten
+## GitHub en Kaggle verdeling
 
-Het hoofdprogramma is `Code PI/garbagedetection_gui.py`.
+Deze repository bevat vooral:
 
-```bash
-# Standaard (model wordt automatisch gevonden)
-python garbagedetection_gui.py
+- code
+- documentatie
+- configuratiebestanden
+- het compacte referentie-modelpakket
 
-# Specifiek model opgeven
-python garbagedetection_gui.py --model model_best_ema_target96.pth
+Voor reproduceerbaarheid gebruiken we daarnaast Kaggle voor de grote bestanden:
 
-# Volledig scherm (voor Pi touchscreen)
-python garbagedetection_gui.py --fullscreen
+- originele foto's: [Smart Bin Original Images](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-original-images)
+- crops voor het finale model: [Smart Bin Classifier Crops](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-classifier-crops)
+- zware modelbestanden en trainingsoutputs: [Smart Bin Model Artifacts](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-model-artifacts)
 
-# Camera rotatie + lagere drempel
-python garbagedetection_gui.py --rotate 180 --threshold 0.4
-```
+Met deze repo samen met die drie Kaggle-links kan het servergedeelte opnieuw worden opgebouwd.
 
-**Toetsenbord snelkoppelingen**
+## Gebruikte foto's en datastroom
 
-| Toets | Actie |
-|---|---|
-| Spatie | Analyseer huidig camerabeeld |
-| Escape / F11 | Toggle volledig scherm |
+De foto's zijn verzameld via:
 
-## AI-model prioriteit
+- Google Dataset Search
+- Kaggle
+- [images.cv](https://images.cv/)
 
-De GUI laadt automatisch het beste beschikbare model in deze volgorde:
+Een deel van de beelden kwam uit Amerikaanse datasets. Daardoor moesten we zelf foto's controleren en hersorteren, vooral voor `PMD`, zodat de sorteerlogica klopt met de regels in Brugge.
 
-1. **Hailo HEF** (`.hef`) – snelste optie, vereist gecompileerd model voor Hailo AI Hat+
-2. **RF-DETR** (`.pth`) – huidig productiemodel, draait op CPU
-3. **Two-stage ONNX** – `stage1_main.onnx` + `stage2_overige.onnx`
-4. **Single-stage ONNX** – `model.onnx` of `inference_model.onnx`
+De flow voor het finale model is:
 
-Modellen worden gezocht in: naast het script, `AI/`, en `../Ai-model/`.
+1. originele foto's
+2. YOLO-detector zoekt het afvalobject
+3. daaruit worden crops gemaakt
+4. de two-stage classifier traint op die crops
 
-## RF-DETR model
+## Serverdocumentatie
 
-Het huidige model is getraind met RF-DETR (`model_best_ema_target96.pth`).  
-Het modelbestand staat **niet** in git (`.gitignore`) vanwege de bestandsgrootte.
+Voor de trainings- en exportflow:
 
-### Model kopiëren naar de Pi
-
-```bash
-scp model_best_ema_target96.pth <PI_USER>@<PI_IP>:~/SlimmeAfvalcontainer/Code\ PI/
-```
-
-### Testen zonder GUI (enkel inferentie op een afbeelding)
-
-```bash
-python infer_rfdetr_pi.py \
-  --model model_best_ema_target96.pth \
-  --image /pad/naar/test.jpg \
-  --threshold 0.5 \
-  --output prediction.jpg
-```
-
-## Hailo AI Hat+ (optioneel)
-
-De Hailo AI Hat+ versnelt inferentie aanzienlijk. Hiervoor moet het model gecompileerd worden naar `.hef` formaat via de [Hailo Model Zoo / DFC toolchain](https://github.com/hailo-ai/hailo-rpi5-examples).
-
-1. Exporteer RF-DETR naar ONNX
-2. Compileer ONNX → HEF met de Hailo DFC
-3. Zet het `.hef` bestand naast het script
-4. De GUI pikt het automatisch op
-
-## ONNX two-stage model (fallback)
-
-Het twee-fase model staat op de Pi in:
-```
-/home/kobe/SlimmeAfvalcontainer/Code PI/AI/
-```
-
-Benodigde bestanden:
-```
-stage1_main.onnx
-stage1_main.onnx.data
-stage2_overige.onnx
-stage2_overige.onnx.data
-two_stage_metadata.json
-```
-
-**Inferentielogica:**
-1. Stage 1 classificeert naar hoofdklasse (Organisch / PMD / Papier / Restafval / Overige)
-2. Als resultaat `Overige` is → Stage 2 verfijnt naar subklasse (Batterijen, Glas, …)
-3. Lage confidence → fallback naar `Restafval`
-
-Labels worden gelezen uit `two_stage_metadata.json` – nooit hardgecodeerd.
-
-## Installatie op de Pi
-
-```bash
-# Apt-pakketten (eenmalig)
-sudo apt install python3-picamera2 python3-libcamera python3-pil.imagetk python3-tk
-
-# Python-omgeving
-cd ~/SlimmeAfvalcontainer/Code\ PI
-python3 -m venv .venv --system-site-packages
-source .venv/bin/activate
-pip install --upgrade pip
-pip install rfdetr supervision pillow numpy onnxruntime
-```
-
-## Afvalklassen → containers
-
-| Gedetecteerde klasse | Container |
-|---|---|
-| Organisch / GFT / Bio | Organisch (groen) |
-| Papier / Karton | Papier (blauw) |
-| PMD / Plastic / Metaal / Blik | PMD (geel) |
-| Overige / Batterijen / … | Restafval (grijs) |
-| Restafval | Restafval (grijs) |
-
-## Gebruikte foto's
-
-- Originele/normale foto's: [Smart Bin Original Images](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-original-images)
-- Crops voor het finale model: [Smart Bin Classifier Crops](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-classifier-crops)
-
-## Troubleshooting
-
-**`python: command not found`** → gebruik `python3`
-
-**Fout bij `pip install rfdetr`**
-```bash
-pip install --upgrade pip setuptools wheel
-pip install -r requirements_pi.txt
-```
-
-**Inferentie te traag op Pi CPU**
-- Verhoog threshold: `--threshold 0.6`
-- Gebruik de Hailo AI Hat+ met een gecompileerd `.hef` model
-
-**Camera start niet**
-```bash
-sudo apt install python3-picamera2 python3-libcamera
-# Controleer of de camera ingeschakeld is in raspi-config
-```
-
-## Workflow
-
-```
-1. Camera legt beeld vast
-        ↓
-2. RF-DETR / Hailo detecteert afvalobject + bounding box
-        ↓
-3. Klasse wordt omgezet naar containertype
-        ↓
-4. LED-strip toont de juiste container
-        ↓
-5. Ultrasoon sensor bevestigt dat afval gevallen is
-```
-
-## Toekomst
-
-- [ ] RF-DETR → HEF compileren voor Hailo AI Hat+ (snellere inferentie)
-- [ ] Cloud-monitoring dashboard
-- [ ] Mobiele app voor gebruikersfeedback
-- [ ] Meerdere containers ondersteunen
-- [ ] Energie-optimalisatie
-
-## Team
-
-- [Maarten Audenaert](https://github.com/MaartenAudenaert)
-- [Kobe Demetser](https://github.com/kobedemetser)
-- [Ocean Dekeyser](https://github.com/Oceandek)
-- [Juul Kerkhof](https://github.com/)
-- [Bhavninder Pal Singh](https://github.com/)
+- [Documentaties/Server/README.md](Documentaties/Server/README.md)
+- [Documentaties/Server/Handleiding/README.md](Documentaties/Server/Handleiding/README.md)
 
 ## Links
 
+- [Smart Bin Original Images](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-original-images)
+- [Smart Bin Classifier Crops](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-classifier-crops)
+- [Smart Bin Model Artifacts](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-model-artifacts)
 - [Raspberry Pi Documentatie](https://www.raspberrypi.com/documentation/)
 - [Pi Camera 3 Documentatie](https://www.raspberrypi.com/documentation/accessories/camera.html)
 - [Hailo RPi5 Voorbeelden](https://github.com/hailo-ai/hailo-rpi5-examples)
-- [RF-DETR GitHub](https://github.com/roboflow/rf-detr)
 - [NeoPixel LED Guide](https://learn.adafruit.com/adafruit-neopixel-uberguide)

@@ -1,7 +1,6 @@
-# 7. Controle, GitHub en grote bestanden
+﻿# 7. Controle, GitHub en grote bestanden
 
-Dit onderdeel gaat over controleren of alles compleet is en hoe je dit logisch
-in GitHub bewaart.
+Dit onderdeel gaat over controleren of alles compleet is en hoe je dit logisch in GitHub bewaart.
 
 ## 7.1 Controleer modelpakket
 
@@ -36,8 +35,7 @@ Gebruik:
 - [MANIFEST.txt](../../Bestanden/MANIFEST.txt)
 - [LOCAL_MANIFEST.txt](../../Bestanden/LOCAL_MANIFEST.txt)
 
-`MANIFEST.txt` is de serverlijst. `LOCAL_MANIFEST.txt` toont wat lokaal in deze
-workspace aanwezig was toen de documentatie werd gemaakt.
+`MANIFEST.txt` is de serverlijst. `LOCAL_MANIFEST.txt` toont wat bewust in GitHub staat en wat via Kaggle gedownload moet worden.
 
 ## 7.3 Metadata controleren
 
@@ -55,48 +53,37 @@ detector_used wijst naar de juiste detector
 crops_root wijst naar de juiste cropdataset
 ```
 
-## 7.4 GitHub-structuur
+## 7.4 Aanbevolen verdeling
 
-Aanbevolen:
+Gebruik deze structuur:
 
 ```text
-documentatie/
-|-- README.md
-|-- Handleiding/
-|   |-- README.md
-|   |-- 01_vm_en_project/
-|   |-- 02_dependencies/
-|   |-- 03_dataset/
-|   |-- 04_detector/
-|   |-- 05_crop_classifier/
-|   |-- 06_export_modelpakket/
-|   `-- 07_controle_en_github/
-`-- Bestanden/
-    |-- README.md
-    |-- MANIFEST.txt
-    |-- Scripts_en_config/
-    |-- Huidig_modelpakket_test11mei_light_crops/
-    |-- two_stage_training_outputs/
-    `-- Gebruikte_detector/
+GitHub:
+- code
+- documentatie
+- scripts en configs
+- compact referentie-modelpakket
+
+Kaggle:
+- Smart Bin Original Images
+- Smart Bin Classifier Crops
+- Smart Bin Model Artifacts
 ```
+
+Links:
+
+- [Smart Bin Original Images](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-original-images)
+- [Smart Bin Classifier Crops](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-classifier-crops)
+- [Smart Bin Model Artifacts](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-model-artifacts)
 
 ## 7.5 Grote bestanden
 
-Gewone GitHub commits hebben een harde limiet rond 100 MB per bestand. Dit is
-een probleem voor:
+De zwaarste bestanden, zoals de detector voor cropbouw en de volledige trainingoutputs, staan bewust niet als gewone binaries in GitHub.
 
-[best_detector_used_for_crops.pt](../../Bestanden/Gebruikte_detector/best_detector_used_for_crops.pt)
+Gebruik daarom de Kaggle model-artifacts als vaste downloadplek:
 
-Dit bestand is ongeveer 350 MB.
-
-Gebruik een van deze oplossingen:
-
-```text
-Git LFS
-GitHub Release assets
-externe opslag met downloadlink
-serverpad behouden en documenteren
-```
+- [Gebruikte_detector/README.md](../../Bestanden/Gebruikte_detector/README.md)
+- [two_stage_training_outputs/README.md](../../Bestanden/two_stage_training_outputs/README.md)
 
 ## 7.6 Wat wel makkelijk in GitHub kan
 
@@ -108,19 +95,15 @@ Deze bestanden zijn veel geschikter om gewoon mee te nemen:
 - [dataset.yaml](../../Bestanden/Scripts_en_config/dataset.yaml)
 - [two_stage_metadata.json](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
 
-Ook kleinere ONNX/modelpakketbestanden kunnen afhankelijk van jullie repo-afspraken
-mee, maar check altijd de bestandsgrootte.
+Ook kleinere ONNX/modelpakketbestanden kunnen mee, zolang de bestandsgrootte werkbaar blijft.
 
 ## 7.7 Laatste sanity check
 
-Op server:
+Als je alles opnieuw wil opbouwen, heb je nodig:
 
-```bash
-find /root/smart_bin_project/documentatie -maxdepth 3 -type f | sort
-du -sh /root/smart_bin_project/documentatie
-df -h
-```
+1. deze GitHub-repo
+2. [Smart Bin Original Images](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-original-images)
+3. [Smart Bin Classifier Crops](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-classifier-crops)
+4. [Smart Bin Model Artifacts](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-model-artifacts)
 
-Als de disk vol staat, maak geen extra kopieën van grote modellen. Gebruik dan
-hardlinks, Git LFS of externe artifacts.
-
+Met die combinatie heb je de documentatie, scripts, datasets, detector en trainingsoutputs samen.

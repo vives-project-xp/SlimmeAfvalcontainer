@@ -1,12 +1,10 @@
-# 5. Cropdataset en two-stage classifier trainen
+﻿# 5. Cropdataset en two-stage classifier trainen
 
 Dit onderdeel maakt het belangrijkste classificatiemodel.
 
 ## 5.1 Waarom crops?
 
-Als je een volledige foto classificeert, kan het model te veel leren van de
-achtergrond. Daarom wordt eerst met YOLO het afvalobject gezocht. Van dat object
-wordt een crop gemaakt. De classifier traint daarna op die crops.
+Als je een volledige foto classificeert, kan het model te veel leren van de achtergrond. Daarom wordt eerst met YOLO het afvalobject gezocht. Van dat object wordt een crop gemaakt. De classifier traint daarna op die crops.
 
 Voor het finale model gebruiken we deze cropdataset:
 
@@ -16,11 +14,7 @@ Deze crops zijn gemaakt uit de originele foto-dataset:
 
 [Smart Bin Original Images](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-original-images)
 
-De originele foto's kwamen uit datasets die via Google Dataset Search en Kaggle
-gevonden zijn, aangevuld met zoekwerk via [images.cv](https://images.cv/). Omdat
-een deel van de beelden uit Amerikaanse bronnen kwam, moesten we zelf sorteren en
-controleren. Vooral `PMD` vroeg extra aandacht, omdat de PMD-regels in Brugge
-niet hetzelfde zijn als de Amerikaanse sorteerlogica.
+De originele foto's kwamen uit datasets die via Google Dataset Search en Kaggle gevonden zijn, aangevuld met zoekwerk via [images.cv](https://images.cv/). Omdat een deel van de beelden uit Amerikaanse bronnen kwam, moesten we zelf sorteren en controleren. Vooral `PMD` vroeg extra aandacht, omdat de PMD-regels in Brugge niet hetzelfde zijn als de Amerikaanse sorteerlogica.
 
 Korte uitleg:
 
@@ -33,12 +27,6 @@ Korte uitleg:
 Gebruik:
 
 [train_two_stage_crops.py](../../Bestanden/Scripts_en_config/train_two_stage_crops.py)
-
-Zet dit bestand in:
-
-```text
-/root/smart_bin_project/train_two_stage_crops.py
-```
 
 ## 5.3 Belangrijke paden in het script
 
@@ -62,16 +50,6 @@ source .venv/bin/activate
 python3 train_two_stage_crops.py
 ```
 
-Belangrijke instellingen:
-
-```text
-CONF_THRESH = 0.25
-PADDING = 0.05
-VAL_RATIO = 0.2
-USE_FULL_WHEN_MISSING = True
-SEED = 42
-```
-
 Output:
 
 ```text
@@ -83,21 +61,6 @@ Op Kaggle staat deze finale cropdataset hier:
 
 [Smart Bin Classifier Crops](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-classifier-crops)
 
-Als dit bestand bestaat, wordt cropbouw overgeslagen:
-
-```text
-/root/smart_bin_project/data/classifier_crops/.build_done
-```
-
-Wil je helemaal opnieuw:
-
-```bash
-rm -rf /root/smart_bin_project/data/classifier_crops
-python3 train_two_stage_crops.py
-```
-
-Doe dit alleen bewust, want je verwijdert dan de bestaande crops.
-
 ## 5.5 Two-stage classifier
 
 Het script traint twee MobileNetV3 Large modellen:
@@ -107,8 +70,7 @@ Stage 1: Organisch, PMD, Papier, Restafval, Overige
 Stage 2: Batterijen, Elektronica, Glas, Lightbulbs, Metaal
 ```
 
-Stage 2 wordt alleen gebruikt voor afbeeldingen die Stage 1 als `Overige`
-inschat.
+Stage 2 wordt alleen gebruikt voor afbeeldingen die Stage 1 als `Overige` inschat.
 
 ## 5.6 Hyperparameters
 
@@ -135,26 +97,27 @@ Wat betekent dit kort?
 - `SEED`: vaste random startwaarde voor reproduceerbaarheid.
 - `VRAM_LIMIT_MB`: maximum GPU-geheugen dat het script probeert te gebruiken.
 
-Aanpassen kan via environment variables:
-
-```bash
-EPOCHS_STAGE1=60 EPOCHS_STAGE2=60 BATCH_SIZE=48 LEARNING_RATE=0.0005 python3 train_two_stage_crops.py
-```
-
 ## 5.7 Output
 
-Na training:
+Na training krijg je:
 
-- [stage1_main.pth](../../Bestanden/two_stage_training_outputs/stage1_main.pth)
-- [stage2_overige.pth](../../Bestanden/two_stage_training_outputs/stage2_overige.pth)
-- [two_stage_metadata.json](../../Bestanden/two_stage_training_outputs/two_stage_metadata.json)
+- `stage1_main.pth`
+- `stage2_overige.pth`
+- `stage1_main.onnx`
+- `stage1_main.onnx.data`
+- `stage2_overige.onnx`
+- `stage2_overige.onnx.data`
+- `two_stage_metadata.json`
+
+Downloadbare referentieversie:
+
+- [Smart Bin Model Artifacts](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-model-artifacts)
+- [two_stage_training_outputs/README.md](../../Bestanden/two_stage_training_outputs/README.md)
 
 Op de server:
 
 ```text
-/root/smart_bin_project/models/two_stage_crops/stage1_main.pth
-/root/smart_bin_project/models/two_stage_crops/stage2_overige.pth
-/root/smart_bin_project/models/two_stage_crops/two_stage_metadata.json
+/root/smart_bin_project/models/two_stage_crops
 ```
 
 ## 5.8 Verwachte metadata
@@ -174,18 +137,3 @@ De metadata bevat onder andere:
 Referentie:
 
 [two_stage_metadata.json](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
-
-## 5.9 Resultaten controleren
-
-Bekijk log:
-
-```bash
-tail -100 /root/smart_bin_project/two_stage_crops_training.log
-```
-
-Huidige referentie-accuracies:
-
-```text
-Stage 1 validatie-accuracy: 89.45972021225278%
-Stage 2 validatie-accuracy: 92.03069657615112%
-```
