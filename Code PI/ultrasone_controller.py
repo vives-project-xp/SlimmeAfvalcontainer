@@ -16,7 +16,7 @@ class UltrasonicMonitor:
     SENSOR_MAP = {
         "rest": {"trig": 25, "echo": 26},
         "pmd": {"trig": 22, "echo": 4},
-        "papier": {"trig": 23, "echo": 24},
+        "papier": {"trig": 16, "echo": 24},
         # Default Organisch sensor pins (can be overridden from CLI).
         "org": {"trig": 17, "echo": 27},
     }
