@@ -18,7 +18,7 @@ Elke bak heeft één HC-SR04 sensor met een **TRIG**-pin (trigger) en een **ECHO
 |-----------|----------|----------|
 | `rest`    | GPIO 25  | GPIO 26  |
 | `pmd`     | GPIO 22  | GPIO 4   |
-| `papier`  | GPIO 23  | GPIO 24  |
+| `papier`  | GPIO 16  | GPIO 24  |
 | `org`     | GPIO 17  | GPIO 27  |
 
 > De GPIO-nummering volgt het BCM-schema (niet de fysieke pin-nummers).
