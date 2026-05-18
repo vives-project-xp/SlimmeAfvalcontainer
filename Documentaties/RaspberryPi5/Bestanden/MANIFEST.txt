@@ -1,0 +1,34 @@
+# Raspberry Pi 5 manifest
+
+Documentatie:
+- Documentaties/RaspberryPi5/README.md
+- Documentaties/RaspberryPi5/Handleiding/README.md
+- Documentaties/RaspberryPi5/Handleiding/01_pi_en_projectmap/README.md
+- Documentaties/RaspberryPi5/Handleiding/02_dependencies/README.md
+- Documentaties/RaspberryPi5/Handleiding/03_modelpakket/README.md
+- Documentaties/RaspberryPi5/Handleiding/04_gui_en_autostart/README.md
+- Documentaties/RaspberryPi5/Handleiding/05_leds_en_ultrasoon/README.md
+- Documentaties/RaspberryPi5/Handleiding/06_controle_en_troubleshooting/README.md
+- Documentaties/RaspberryPi5/Bestanden/README.md
+
+Bestaande detaildocumentatie:
+- Documentaties/RaspberryPi5/Handleiding/03_modelpakket/referentie/deploy_gids_2_stage.md
+- Documentaties/RaspberryPi5/Handleiding/05_leds_en_ultrasoon/hardware/README.md
+- Documentaties/RaspberryPi5/Handleiding/05_leds_en_ultrasoon/hardware/ledstrip.md
+- Documentaties/RaspberryPi5/Handleiding/05_leds_en_ultrasoon/hardware/ultrasone.md
+- Documentaties/RaspberryPi5/Handleiding/05_leds_en_ultrasoon/hardware/bedrading.md
+
+Runtimebestanden in de repo:
+- Code PI/garbagedetection_gui.py
+- Code PI/led_controller.py
+- Code PI/ultrasone_controller.py
+- Code PI/garbagedetection-gui.service
+- start_garbage_gui.sh
+- inference_gui.service
+
+Belangrijke runtimepaden op de Pi:
+- /home/kobe/SlimmeAfvalcontainer
+- /home/kobe/SlimmeAfvalcontainer/finalmodel
+- /home/kobe/SlimmeAfvalcontainer/test11mei_light_crops -> finalmodel
+- /home/kobe/SlimmeAfvalcontainer/start_garbage_gui.sh
+- /etc/systemd/system/garbagedetection-gui.service
