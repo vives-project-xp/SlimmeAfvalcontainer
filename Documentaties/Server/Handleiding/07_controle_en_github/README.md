@@ -26,7 +26,7 @@ pi_inference_two_stage.py
 
 Vergelijk met de referentie:
 
-[Huidig_modelpakket_test11mei_light_crops](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/)
+[Huidig_modelpakket_finalmodel](../../Bestanden/Huidig_modelpakket_finalmodel/)
 
 ## 7.2 Manifest gebruiken
 
@@ -41,7 +41,7 @@ Gebruik:
 
 Open:
 
-[two_stage_metadata.json](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
+[two_stage_metadata.json](../../Bestanden/Huidig_modelpakket_finalmodel/two_stage_metadata.json)
 
 Controleer:
 
@@ -93,7 +93,7 @@ Deze bestanden zijn veel geschikter om gewoon mee te nemen:
 - [export_two_stage_onnx.py](../../Bestanden/Scripts_en_config/export_two_stage_onnx.py)
 - [requirements.txt](../../Bestanden/Scripts_en_config/requirements.txt)
 - [dataset.yaml](../../Bestanden/Scripts_en_config/dataset.yaml)
-- [two_stage_metadata.json](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
+- [two_stage_metadata.json](../../Bestanden/Huidig_modelpakket_finalmodel/two_stage_metadata.json)
 
 Ook kleinere ONNX/modelpakketbestanden kunnen mee, zolang de bestandsgrootte werkbaar blijft.
 
@@ -107,3 +107,4 @@ Als je alles opnieuw wil opbouwen, heb je nodig:
 4. [Smart Bin Model Artifacts](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-model-artifacts)
 
 Met die combinatie heb je de documentatie, scripts, datasets, detector en trainingsoutputs samen.
+

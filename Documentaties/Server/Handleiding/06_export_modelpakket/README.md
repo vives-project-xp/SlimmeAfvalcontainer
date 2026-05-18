@@ -56,7 +56,7 @@ Gebruik die naam omdat de bestaande scripts dit bestand zo verwachten.
 
 Referentie:
 
-[yolov8_detector.onnx](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/yolov8_detector.onnx)
+[yolov8_detector.onnx](../../Bestanden/Huidig_modelpakket_finalmodel/yolov8_detector.onnx)
 
 ## 6.3 Modelpakketmap maken
 
@@ -85,17 +85,17 @@ cp /root/smart_bin_project/runs/detect_strong/garbage_detector_l_fallback_aware_
 
 Minimaal:
 
-- [best.pt](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/best.pt)
-- [yolov8_detector.onnx](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/yolov8_detector.onnx)
-- [stage1_main.onnx](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/stage1_main.onnx)
-- [stage1_main.onnx.data](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/stage1_main.onnx.data)
-- [stage2_overige.onnx](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/stage2_overige.onnx)
-- [stage2_overige.onnx.data](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/stage2_overige.onnx.data)
-- [two_stage_metadata.json](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
-- [classifier.py](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/classifier.py)
-- [detector.py](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/detector.py)
-- [main.py](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/main.py)
-- [pi_inference_two_stage.py](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/pi_inference_two_stage.py)
+- [best.pt](../../Bestanden/Huidig_modelpakket_finalmodel/best.pt)
+- [yolov8_detector.onnx](../../Bestanden/Huidig_modelpakket_finalmodel/yolov8_detector.onnx)
+- [stage1_main.onnx](../../Bestanden/Huidig_modelpakket_finalmodel/stage1_main.onnx)
+- [stage1_main.onnx.data](../../Bestanden/Huidig_modelpakket_finalmodel/stage1_main.onnx.data)
+- [stage2_overige.onnx](../../Bestanden/Huidig_modelpakket_finalmodel/stage2_overige.onnx)
+- [stage2_overige.onnx.data](../../Bestanden/Huidig_modelpakket_finalmodel/stage2_overige.onnx.data)
+- [two_stage_metadata.json](../../Bestanden/Huidig_modelpakket_finalmodel/two_stage_metadata.json)
+- [classifier.py](../../Bestanden/Huidig_modelpakket_finalmodel/classifier.py)
+- [detector.py](../../Bestanden/Huidig_modelpakket_finalmodel/detector.py)
+- [main.py](../../Bestanden/Huidig_modelpakket_finalmodel/main.py)
+- [pi_inference_two_stage.py](../../Bestanden/Huidig_modelpakket_finalmodel/pi_inference_two_stage.py)
 
 Voor de volledige trainingsoutputs gebruik je daarnaast:
 
@@ -106,3 +106,4 @@ Voor de volledige trainingsoutputs gebruik je daarnaast:
 Er is ook een bestaand verzamelscript:
 
 [verzamel_pi_bestanden.sh](../../Bestanden/Scripts_en_config/verzamel_pi_bestanden.sh)
+

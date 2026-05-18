@@ -94,4 +94,5 @@ Laat die naam staan tenzij je ook de code aanpast die dit bestand inlaadt.
 
 Referentie:
 
-[yolov8_detector.onnx](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/yolov8_detector.onnx)
+[yolov8_detector.onnx](../../Bestanden/Huidig_modelpakket_finalmodel/yolov8_detector.onnx)
+

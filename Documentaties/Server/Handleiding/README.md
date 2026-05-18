@@ -1,4 +1,4 @@
-# Handleiding vanaf nul
+﻿# Handleiding vanaf nul
 
 Deze handleiding is opgesplitst per onderdeel. Ze is bedoeld voor iemand die nog
 geen VM, projectmap of trainingsomgeving heeft en het smart-bin trainingsresultaat
@@ -19,7 +19,7 @@ vanaf nul wil kunnen reproduceren.
 Het doel is een map zoals:
 
 ```text
-test11mei_light_crops/
+finalmodel/
 |-- best.pt
 |-- yolov8_detector.onnx
 |-- stage1_main.onnx
@@ -35,7 +35,7 @@ test11mei_light_crops/
 
 Een referentieversie van dat pakket staat in:
 
-[../Bestanden/Huidig_modelpakket_test11mei_light_crops](../Bestanden/Huidig_modelpakket_test11mei_light_crops/)
+[../Bestanden/Huidig_modelpakket_finalmodel](../Bestanden/Huidig_modelpakket_finalmodel/)
 
 ## Belangrijke bijhorende bestanden
 
@@ -44,10 +44,11 @@ Een referentieversie van dat pakket staat in:
 - [train_yolo_l.py](../Bestanden/Scripts_en_config/train_yolo_l.py)
 - [train_yolo_until_target.py](../Bestanden/Scripts_en_config/train_yolo_until_target.py)
 - [requirements.txt](../Bestanden/Scripts_en_config/requirements.txt)
-- [two_stage_metadata.json](../Bestanden/Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
+- [two_stage_metadata.json](../Bestanden/Huidig_modelpakket_finalmodel/two_stage_metadata.json)
 
 ## Belangrijk uitgangspunt
 
 Deze documentatie beschrijft serverkant training en export. De installatie op de
 Raspberry Pi zelf hoort hier niet bij. De modelbestanden die later naar de Pi
 gaan, worden hier wel gemaakt en verzameld.
+

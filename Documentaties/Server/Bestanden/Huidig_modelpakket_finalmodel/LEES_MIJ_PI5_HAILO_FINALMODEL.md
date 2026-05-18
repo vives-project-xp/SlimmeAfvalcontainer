@@ -1,4 +1,4 @@
-# Test11mei Light Crops: Pi 5 + Hailo HAT pakket
+﻿# Test11mei Light Crops: Pi 5 + Hailo HAT pakket
 
 Deze map is bedoeld als klaarzet-map voor de Raspberry Pi 5 met Hailo HAT.
 
@@ -43,7 +43,7 @@ Deze bestanden zouden hier nu aanwezig moeten zijn:
 Als je later een nieuwere lichte detectorrun wilt inladen, voer je op de server uit:
 
 ```bash
-cd /root/smart_bin_project/test11mei_light_crops
+cd /root/smart_bin_project/finalmodel
 bash vul_detector_na_training.sh
 ```
 
@@ -64,7 +64,7 @@ Standaard haalt dat script de detector uit:
 Bijvoorbeeld:
 
 ```bash
-scp -r /root/smart_bin_project/test11mei_light_crops pi@<IP_VAN_PI>:/home/pi/
+scp -r /root/smart_bin_project/finalmodel pi@<IP_VAN_PI>:/home/pi/
 ```
 
 ## Stap 4: Detector klaarmaken voor Hailo
@@ -84,14 +84,14 @@ Belangrijk:
 Voor Hailo HAT:
 
 ```bash
-cd ~/test11mei_light_crops
+cd ~/finalmodel
 python3 hailo_two_stage_main.py
 ```
 
 Voor ONNX/CPU test:
 
 ```bash
-cd ~/test11mei_light_crops
+cd ~/finalmodel
 python3 main.py
 ```
 
@@ -104,3 +104,4 @@ De two-stage classifier in deze map is nu de crop-gebaseerde variant uit `models
 - `stage2_overige` validatie-accuracy: `92.03%`
 
 De detector kan later nog vervangen worden door een nieuwere `best.pt`/`yolov8_detector.onnx`/`.hef` zonder dat je de classifierbestanden opnieuw hoeft te maken.
+

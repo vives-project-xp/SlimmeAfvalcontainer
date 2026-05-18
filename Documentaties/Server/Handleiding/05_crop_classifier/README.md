@@ -136,4 +136,5 @@ De metadata bevat onder andere:
 
 Referentie:
 
-[two_stage_metadata.json](../../Bestanden/Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
+[two_stage_metadata.json](../../Bestanden/Huidig_modelpakket_finalmodel/two_stage_metadata.json)
+

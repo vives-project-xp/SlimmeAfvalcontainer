@@ -11,7 +11,7 @@ Bestanden/
 |-- README.md
 |-- MANIFEST.txt
 |-- LOCAL_MANIFEST.txt
-|-- Huidig_modelpakket_test11mei_light_crops/
+|-- Huidig_modelpakket_finalmodel/
 |-- two_stage_training_outputs/
 |-- Gebruikte_detector/
 `-- Scripts_en_config/
@@ -29,31 +29,31 @@ De zwaardere trainingsbestanden staan bewust op Kaggle:
 
 [Smart Bin Model Artifacts](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-model-artifacts)
 
-## `Huidig_modelpakket_test11mei_light_crops`
+## `Huidig_modelpakket_finalmodel`
 
 Dit is het huidige modelpakket dat als referentie gebruikt wordt.
 
 Belangrijkste bestanden:
 
-- [best.pt](Huidig_modelpakket_test11mei_light_crops/best.pt)
-- [yolov8_detector.onnx](Huidig_modelpakket_test11mei_light_crops/yolov8_detector.onnx)
-- [stage1_main.onnx](Huidig_modelpakket_test11mei_light_crops/stage1_main.onnx)
-- [stage1_main.onnx.data](Huidig_modelpakket_test11mei_light_crops/stage1_main.onnx.data)
-- [stage2_overige.onnx](Huidig_modelpakket_test11mei_light_crops/stage2_overige.onnx)
-- [stage2_overige.onnx.data](Huidig_modelpakket_test11mei_light_crops/stage2_overige.onnx.data)
-- [two_stage_metadata.json](Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
-- [classifier.py](Huidig_modelpakket_test11mei_light_crops/classifier.py)
-- [detector.py](Huidig_modelpakket_test11mei_light_crops/detector.py)
-- [main.py](Huidig_modelpakket_test11mei_light_crops/main.py)
-- [pi_inference_two_stage.py](Huidig_modelpakket_test11mei_light_crops/pi_inference_two_stage.py)
-- [hailo_two_stage_main.py](Huidig_modelpakket_test11mei_light_crops/hailo_two_stage_main.py)
-- [vul_detector_na_training.sh](Huidig_modelpakket_test11mei_light_crops/vul_detector_na_training.sh)
-- [LEES_MIJ_PI5_HAILO_TEST11MEI_LIGHT_CROPS.md](Huidig_modelpakket_test11mei_light_crops/LEES_MIJ_PI5_HAILO_TEST11MEI_LIGHT_CROPS.md)
+- [best.pt](Huidig_modelpakket_finalmodel/best.pt)
+- [yolov8_detector.onnx](Huidig_modelpakket_finalmodel/yolov8_detector.onnx)
+- [stage1_main.onnx](Huidig_modelpakket_finalmodel/stage1_main.onnx)
+- [stage1_main.onnx.data](Huidig_modelpakket_finalmodel/stage1_main.onnx.data)
+- [stage2_overige.onnx](Huidig_modelpakket_finalmodel/stage2_overige.onnx)
+- [stage2_overige.onnx.data](Huidig_modelpakket_finalmodel/stage2_overige.onnx.data)
+- [two_stage_metadata.json](Huidig_modelpakket_finalmodel/two_stage_metadata.json)
+- [classifier.py](Huidig_modelpakket_finalmodel/classifier.py)
+- [detector.py](Huidig_modelpakket_finalmodel/detector.py)
+- [main.py](Huidig_modelpakket_finalmodel/main.py)
+- [pi_inference_two_stage.py](Huidig_modelpakket_finalmodel/pi_inference_two_stage.py)
+- [hailo_two_stage_main.py](Huidig_modelpakket_finalmodel/hailo_two_stage_main.py)
+- [vul_detector_na_training.sh](Huidig_modelpakket_finalmodel/vul_detector_na_training.sh)
+- [LEES_MIJ_PI5_HAILO_FINALMODEL.md](Huidig_modelpakket_finalmodel/LEES_MIJ_PI5_HAILO_FINALMODEL.md)
 
 Dit komt overeen met de servermap:
 
 ```text
-/root/smart_bin_project/test11mei_light_crops
+/root/smart_bin_project/finalmodel
 ```
 
 Opmerking: `yolov8_detector.onnx` is een bestaande bestandsnaam in het pakket.
@@ -112,3 +112,5 @@ Belangrijkste bestanden:
 [MANIFEST.txt](MANIFEST.txt) bevat een lijst van alle bestanden in deze map zoals ze op de server geplaatst zijn.
 
 [LOCAL_MANIFEST.txt](LOCAL_MANIFEST.txt) beschrijft welke bestanden bewust lokaal in GitHub staan en welke via Kaggle gedownload moeten worden.
+
+

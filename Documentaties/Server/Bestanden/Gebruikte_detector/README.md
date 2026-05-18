@@ -32,7 +32,8 @@ used_crop_detector/
 Deze detector is gebruikt om de objectcrops uit de originele foto's te maken. Het finale modelpakket bevat daarnaast ook een compactere `best.pt` in:
 
 ```text
-/root/smart_bin_project/test11mei_light_crops
+/root/smart_bin_project/finalmodel
 ```
 
 Voor exacte reproductie van de cropbouw gebruik je de detector uit de Kaggle model-artifacts.
+

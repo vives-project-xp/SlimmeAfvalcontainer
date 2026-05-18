@@ -22,7 +22,7 @@ documentatie/
     |-- README.md
     |-- MANIFEST.txt
     |-- LOCAL_MANIFEST.txt
-    |-- Huidig_modelpakket_test11mei_light_crops/
+    |-- Huidig_modelpakket_finalmodel/
     |-- two_stage_training_outputs/
     |-- Gebruikte_detector/
     `-- Scripts_en_config/
@@ -38,12 +38,12 @@ documentatie/
 Het modelpakket dat nu als referentie gebruikt wordt:
 
 ```text
-/root/smart_bin_project/test11mei_light_crops
+/root/smart_bin_project/finalmodel
 ```
 
 In deze documentatiemap staat dat onder:
 
-[Bestanden/Huidig_modelpakket_test11mei_light_crops](Bestanden/Huidig_modelpakket_test11mei_light_crops/)
+[Bestanden/Huidig_modelpakket_finalmodel](Bestanden/Huidig_modelpakket_finalmodel/)
 
 ## Snel starten
 
@@ -68,13 +68,13 @@ In deze documentatiemap staat dat onder:
 - Finale cropdataset op Kaggle: [Smart Bin Classifier Crops](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-classifier-crops)
 - Originele foto's op Kaggle: [Smart Bin Original Images](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-original-images)
 - Zware model-artifacts op Kaggle: [Smart Bin Model Artifacts](https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-model-artifacts)
-- Huidige metadata: [two_stage_metadata.json](Bestanden/Huidig_modelpakket_test11mei_light_crops/two_stage_metadata.json)
-- Huidige detector in het pakket: [best.pt](Bestanden/Huidig_modelpakket_test11mei_light_crops/best.pt)
+- Huidige metadata: [two_stage_metadata.json](Bestanden/Huidig_modelpakket_finalmodel/two_stage_metadata.json)
+- Huidige detector in het pakket: [best.pt](Bestanden/Huidig_modelpakket_finalmodel/best.pt)
 - Detector gebruikt om crops te bouwen: [Gebruikte_detector/README.md](Bestanden/Gebruikte_detector/README.md)
 - Two-stage trainingsoutputs: [two_stage_training_outputs/README.md](Bestanden/two_stage_training_outputs/README.md)
-- Detector ONNX: [yolov8_detector.onnx](Bestanden/Huidig_modelpakket_test11mei_light_crops/yolov8_detector.onnx)
-- Stage 1 ONNX: [stage1_main.onnx](Bestanden/Huidig_modelpakket_test11mei_light_crops/stage1_main.onnx)
-- Stage 2 ONNX: [stage2_overige.onnx](Bestanden/Huidig_modelpakket_test11mei_light_crops/stage2_overige.onnx)
+- Detector ONNX: [yolov8_detector.onnx](Bestanden/Huidig_modelpakket_finalmodel/yolov8_detector.onnx)
+- Stage 1 ONNX: [stage1_main.onnx](Bestanden/Huidig_modelpakket_finalmodel/stage1_main.onnx)
+- Stage 2 ONNX: [stage2_overige.onnx](Bestanden/Huidig_modelpakket_finalmodel/stage2_overige.onnx)
 - Trainingsscript crops: [train_two_stage_crops.py](Bestanden/Scripts_en_config/train_two_stage_crops.py)
 - Exportscript ONNX: [export_two_stage_onnx.py](Bestanden/Scripts_en_config/export_two_stage_onnx.py)
 - Requirements: [requirements.txt](Bestanden/Scripts_en_config/requirements.txt)
@@ -91,3 +91,4 @@ De gekozen verdeling is:
 - Kaggle voor originele foto's, crops en zware model-artifacts
 
 Daardoor blijven de links werkbaar en kan het project toch volledig opnieuw opgebouwd worden.
+

@@ -3,7 +3,7 @@
 
 Deze repository bevat lokaal in GitHub:
 
-- Huidig_modelpakket_test11mei_light_crops/
+- Huidig_modelpakket_finalmodel/
 - Scripts_en_config/
 - README's, handleidingen en manifesten
 
@@ -26,3 +26,4 @@ Datasets voor het project:
 
 - https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-original-images
 - https://www.kaggle.com/datasets/maartenaudenaert/smart-bin-classifier-crops
+
