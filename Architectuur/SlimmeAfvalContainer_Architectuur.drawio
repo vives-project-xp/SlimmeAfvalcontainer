@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36">
   <diagram name="Page-1" id="INCfXahN5vTtosblzZ5y">
-    <mxGraphModel dx="1994" dy="586" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="1658" dy="429" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -202,7 +202,7 @@
             <mxPoint x="328" y="330" as="sourcePoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="HEs1rE1rqJYXrbwTOyyu-127" connectable="0" parent="HEs1rE1rqJYXrbwTOyyu-104" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#B5739D;fontSize=9;" value="GPIO23" vertex="1">
+        <mxCell id="HEs1rE1rqJYXrbwTOyyu-127" connectable="0" parent="HEs1rE1rqJYXrbwTOyyu-104" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#B5739D;fontSize=9;" value="GPIO16" vertex="1">
           <mxGeometry relative="1" x="-0.83" as="geometry">
             <mxPoint x="-66" as="offset" />
           </mxGeometry>
