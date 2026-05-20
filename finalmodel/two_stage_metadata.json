@@ -1,0 +1,28 @@
+{
+  "input_size": 224,
+  "stage1_classes": [
+    "Organisch",
+    "PMD",
+    "Papier",
+    "Restafval",
+    "Overige"
+  ],
+  "stage2_overige_classes": [
+    "Batterijen",
+    "Elektronica",
+    "Glas",
+    "Lightbulbs",
+    "Metaal"
+  ],
+  "stage1_model": "stage1_main.pth",
+  "stage2_model": "stage2_overige.pth",
+  "main_label_for_stage2": "Overige",
+  "default_fallback": "Restafval",
+  "detector_used": "/root/smart_bin_project/runs/detect_strong/garbage_detector_l_fallback_aware_768-6/weights/best.pt",
+  "crops_root": "/root/smart_bin_project/data/classifier_crops",
+  "vram_limit_mb": 18432,
+  "val_accuracy": {
+    "stage1_main": 89.45972021225278,
+    "stage2_overige": 92.03069657615112
+  }
+}
