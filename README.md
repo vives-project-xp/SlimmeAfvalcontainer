@@ -1,6 +1,6 @@
 ﻿# Slimme Afvalcontainer
 
-Een intelligente afvalcontainer met camera-gebaseerde objectdetectie, LED-indicatie en ultrasoon sensordetectie.
+Een intelligente afvalcontainer met camera-gebaseerde objectdetectie, LED-indicatie en ultrasoon sensordetectie. 
 
 ## Inhoudstafel
 
@@ -23,10 +23,10 @@ Een intelligente afvalcontainer met camera-gebaseerde objectdetectie, LED-indica
 
 Dit project implementeert een slimme afvalcontainer die:
 
-- **Automatisch afvaltype detecteert** via camera en AI-objectdetectie
-- **Visueel aanduidt** welke container gebruikt moet worden met NeoPixel LED's
-- **Controleert of afval gevallen is** met ultrasoon sensoren
-- **Versnelde inferentie** ondersteunt via de Hailo AI Hat+
+- **Automatisch afvaltype detecteert** via camera en AI-objectdetectie.
+- **Visueel aanduidt** welke container gebruikt moet worden met NeoPixel LED's.
+- **Controleert of afval gevallen is** met ultrasoon sensoren.
+- **Versnelde inferentie** ondersteunt via de Hailo AI Hat+.
 
 ## Hardware
 
